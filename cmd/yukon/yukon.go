@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	// Importing the nexus-client package using a relative path
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -18,11 +17,12 @@ var baseStyle = lipgloss.NewStyle().
 	BorderForeground(lipgloss.Color("240"))
 
 type model struct {
-	table    table.Model
-	client   *nc.NexusClient
-	path     string
-	children []string
-	err      error
+	table      table.Model
+	client     *nc.NexusClient
+	path       string
+	children   []string
+	err        error
+	lastKeyMsg string
 }
 
 func initialModel() model {
@@ -83,6 +83,15 @@ func (m model) fetchChildren() tea.Msg {
 	return childrenMsg{rows}
 }
 
+func (m model) fetchData() tea.Msg {
+	data, err := m.client.GetValue(m.path)
+	if err != nil {
+		return errMsg{err}
+	}
+
+	return childrenMsg{rows: []table.Row{{"value", fmt.Sprintf("%v", data.Value)}}}
+}
+
 type childrenMsg struct {
 	rows []table.Row
 }
@@ -95,18 +104,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		m.lastKeyMsg = msg.String()
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "enter":
 			if len(m.table.Rows()) > 0 {
 				selected := m.table.SelectedRow()[0]
-				if m.path == "/" {
-					m.path = m.path + selected
-				} else {
-					m.path = m.path + "/" + selected
-				}
+				m.path = m.path + selected + "/"
 				return m, m.fetchChildren
+			} else {
+				return m, m.fetchData
 			}
 		case "backspace", "esc":
 			if m.path != "/" {
@@ -115,7 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if lastSlash == 0 {
 					m.path = "/"
 				} else {
-					m.path = m.path[:lastSlash]
+					m.path = m.path[:lastSlash+1]
 				}
 				return m, m.fetchChildren
 			}
@@ -140,8 +148,9 @@ func (m model) View() string {
 	}
 
 	return baseStyle.Render(
-		fmt.Sprintf("Current path: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
+		fmt.Sprintf("Current path: %s\n\nLast Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
 			m.path,
+			m.lastKeyMsg,
 			m.table.View(),
 		))
 }
