@@ -43,9 +43,10 @@ You can publish values and datasets using the Nexus client. For example:
 ## Roadmap
 
 ### General
+- [ ] Save server state to disk and load from disk on startup
+- [ ] Implement user authentication and authorization
 - [ ] Improve error handling and logging
 - [ ] Documentation for API endpoints
-- [ ] Implement user authentication and authorization
 - [ ] Implement data filtering
 - [ ] Implement data transformation
 - [ ] Implement data compression
