@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package nexus;
+option go_package = "nexus/pkg/proto";
+
+// NexusService handles all publisher and consumer operations
+service NexusService {
+  // Publisher endpoints
+  rpc RegisterEventStream (RegisterEventStreamRequest) returns (RegisterEventStreamResponse);
+  rpc RegisterDataset (RegisterDatasetRequest) returns (RegisterDatasetResponse);
+  rpc StoreValue (StoreValueRequest) returns (StoreValueResponse);
+
+  // Consumer endpoints
+  rpc Subscribe (SubscribeRequest) returns (stream Event);
+  rpc GetValue (GetPathRequest) returns (GetValueResponse);
+  rpc GetDataset (GetPathRequest) returns (GetDatasetResponse);
+  rpc GetEventStream (GetPathRequest) returns (GetEventStreamResponse);
+
+  // Add this to the NexusService
+  rpc ListChildren (ListChildrenRequest) returns (ListChildrenResponse);
+
+}
+
+// Request/Response messages for Publishers
+message RegisterEventStreamRequest {
+  string path = 1; // Path in the data Trie
+  EventStream event_stream = 2;
+}
+
+message RegisterEventStreamResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message RegisterDatasetRequest {
+  string path = 1; // Path in the data Trie
+  Dataset dataset = 2;
+}
+
+message RegisterDatasetResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message StoreValueRequest {
+  string path = 1; // Path in the data Trie
+  DirectValue direct_value = 2;
+}
+
+message StoreValueResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// New message types
+message EventStream {
+  string server = 1; // Kafka server address
+  string topic = 2;  // Kafka topic name
+}
+
+message Dataset {
+  oneof dataset {
+    IndividualFile individual_file = 1;
+    MultiFileDirectory multi_file_directory = 2;
+    DatabaseTable database_table = 3;
+  }
+}
+
+message IndividualFile {
+  string file_type = 1; // e.g., "csv", "json"
+  string file_path = 2; // Path to the file
+  repeated string column_names = 3; // Optional column names
+}
+
+message MultiFileDirectory {
+  string file_type = 1; // e.g., "csv", "json"
+  string directory_path = 2; // Path to the directory
+  int32 file_count = 3; // Number of files
+}
+
+message DatabaseTable {
+  string db_type = 1; // e.g., "Postgres"
+  string host = 2; // Database server address
+  int32 port = 3; // Database server port
+  string db_name = 4; // Database name
+  string table_name = 5; // Table name
+}
+
+message DirectValue {
+  oneof value {
+    string string_value = 1; // Type of data structure (e.g., "string")
+    int32 int_value = 2;     // Integer value
+    float float_value = 3;   // Float value
+  }
+}
+
+// Request/Response messages for Consumers
+message SubscribeRequest {
+  string path = 1;
+}
+
+message Event {
+  bytes data = 1;
+}
+
+// New unified request message
+message GetPathRequest {
+  string path = 1; // Path in the data Trie
+}
+
+message GetValueResponse {
+  DirectValue value = 1;
+  string error = 2; // Error message if any
+}
+
+// Common messages
+message AccessInfo {
+  oneof info {
+    FileInfo file = 1;
+    DatabaseInfo database = 2;
+  }
+}
+
+message FileInfo {
+  string filepath = 1;
+  string format = 2;
+}
+
+message DatabaseInfo {
+  string connection_string = 1;
+  string table = 2;
+}
+
+// Request message for listing children
+message ListChildrenRequest {
+  string path = 1; // Path in the data Trie
+}
+
+// Response message for listing children
+message ListChildrenResponse {
+  repeated string children = 1; // List of child paths
+}
+
+// New request/response messages for GetEventStream
+message GetEventStreamResponse {
+  EventStream event_stream = 1; // The requested event stream
+  string error = 2; // Error message if any
+}
+
+// New request/response messages for GetDataset
+message GetDatasetResponse {
+  Dataset dataset = 1; // The requested dataset
+  string error = 2; // Error message if any
+} 
