@@ -15,9 +15,10 @@ service NexusService {
   rpc GetValue (GetPathRequest) returns (GetValueResponse);
   rpc GetDataset (GetPathRequest) returns (GetDatasetResponse);
   rpc GetEventStream (GetPathRequest) returns (GetEventStreamResponse);
+  rpc GetPathType (GetPathRequest) returns (GetPathTypeResponse);
 
   // Add this to the NexusService
-  rpc ListChildren (ListChildrenRequest) returns (ListChildrenResponse);
+  rpc GetChildren (GetChildrenRequest) returns (GetChildrenResponse);
 
 }
 
@@ -132,12 +133,12 @@ message DatabaseInfo {
 }
 
 // Request message for listing children
-message ListChildrenRequest {
+message GetChildrenRequest {
   string path = 1; // Path in the data Trie
 }
 
 // Response message for listing children
-message ListChildrenResponse {
+message GetChildrenResponse {
   repeated string children = 1; // List of child paths
 }
 
@@ -152,3 +153,8 @@ message GetDatasetResponse {
   Dataset dataset = 1; // The requested dataset
   string error = 2; // Error message if any
 } 
+
+message GetPathTypeResponse {
+  string path_type = 1; // The type of the path
+  string error = 2; // Error message if any
+}

@@ -26,7 +26,8 @@ const (
 	NexusService_GetValue_FullMethodName            = "/nexus.NexusService/GetValue"
 	NexusService_GetDataset_FullMethodName          = "/nexus.NexusService/GetDataset"
 	NexusService_GetEventStream_FullMethodName      = "/nexus.NexusService/GetEventStream"
-	NexusService_ListChildren_FullMethodName        = "/nexus.NexusService/ListChildren"
+	NexusService_GetPathType_FullMethodName         = "/nexus.NexusService/GetPathType"
+	NexusService_GetChildren_FullMethodName         = "/nexus.NexusService/GetChildren"
 )
 
 // NexusServiceClient is the client API for NexusService service.
@@ -44,8 +45,9 @@ type NexusServiceClient interface {
 	GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
 	GetDataset(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetDatasetResponse, error)
 	GetEventStream(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetEventStreamResponse, error)
+	GetPathType(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetPathTypeResponse, error)
 	// Add this to the NexusService
-	ListChildren(ctx context.Context, in *ListChildrenRequest, opts ...grpc.CallOption) (*ListChildrenResponse, error)
+	GetChildren(ctx context.Context, in *GetChildrenRequest, opts ...grpc.CallOption) (*GetChildrenResponse, error)
 }
 
 type nexusServiceClient struct {
@@ -135,10 +137,20 @@ func (c *nexusServiceClient) GetEventStream(ctx context.Context, in *GetPathRequ
 	return out, nil
 }
 
-func (c *nexusServiceClient) ListChildren(ctx context.Context, in *ListChildrenRequest, opts ...grpc.CallOption) (*ListChildrenResponse, error) {
+func (c *nexusServiceClient) GetPathType(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetPathTypeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListChildrenResponse)
-	err := c.cc.Invoke(ctx, NexusService_ListChildren_FullMethodName, in, out, cOpts...)
+	out := new(GetPathTypeResponse)
+	err := c.cc.Invoke(ctx, NexusService_GetPathType_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nexusServiceClient) GetChildren(ctx context.Context, in *GetChildrenRequest, opts ...grpc.CallOption) (*GetChildrenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetChildrenResponse)
+	err := c.cc.Invoke(ctx, NexusService_GetChildren_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -160,8 +172,9 @@ type NexusServiceServer interface {
 	GetValue(context.Context, *GetPathRequest) (*GetValueResponse, error)
 	GetDataset(context.Context, *GetPathRequest) (*GetDatasetResponse, error)
 	GetEventStream(context.Context, *GetPathRequest) (*GetEventStreamResponse, error)
+	GetPathType(context.Context, *GetPathRequest) (*GetPathTypeResponse, error)
 	// Add this to the NexusService
-	ListChildren(context.Context, *ListChildrenRequest) (*ListChildrenResponse, error)
+	GetChildren(context.Context, *GetChildrenRequest) (*GetChildrenResponse, error)
 	mustEmbedUnimplementedNexusServiceServer()
 }
 
@@ -193,8 +206,11 @@ func (UnimplementedNexusServiceServer) GetDataset(context.Context, *GetPathReque
 func (UnimplementedNexusServiceServer) GetEventStream(context.Context, *GetPathRequest) (*GetEventStreamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEventStream not implemented")
 }
-func (UnimplementedNexusServiceServer) ListChildren(context.Context, *ListChildrenRequest) (*ListChildrenResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListChildren not implemented")
+func (UnimplementedNexusServiceServer) GetPathType(context.Context, *GetPathRequest) (*GetPathTypeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPathType not implemented")
+}
+func (UnimplementedNexusServiceServer) GetChildren(context.Context, *GetChildrenRequest) (*GetChildrenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChildren not implemented")
 }
 func (UnimplementedNexusServiceServer) mustEmbedUnimplementedNexusServiceServer() {}
 func (UnimplementedNexusServiceServer) testEmbeddedByValue()                      {}
@@ -336,20 +352,38 @@ func _NexusService_GetEventStream_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NexusService_ListChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListChildrenRequest)
+func _NexusService_GetPathType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPathRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NexusServiceServer).ListChildren(ctx, in)
+		return srv.(NexusServiceServer).GetPathType(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NexusService_ListChildren_FullMethodName,
+		FullMethod: NexusService_GetPathType_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).ListChildren(ctx, req.(*ListChildrenRequest))
+		return srv.(NexusServiceServer).GetPathType(ctx, req.(*GetPathRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NexusService_GetChildren_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChildrenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NexusServiceServer).GetChildren(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NexusService_GetChildren_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NexusServiceServer).GetChildren(ctx, req.(*GetChildrenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -386,8 +420,12 @@ var NexusService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NexusService_GetEventStream_Handler,
 		},
 		{
-			MethodName: "ListChildren",
-			Handler:    _NexusService_ListChildren_Handler,
+			MethodName: "GetPathType",
+			Handler:    _NexusService_GetPathType_Handler,
+		},
+		{
+			MethodName: "GetChildren",
+			Handler:    _NexusService_GetChildren_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

@@ -67,15 +67,6 @@ func (s *NexusServer) GetValue(ctx context.Context, req *pb.GetPathRequest) (*pb
 	return &pb.GetValueResponse{Value: directValue}, nil
 }
 
-// ListChildren implements the endpoint for listing children nodes
-func (s *NexusServer) ListChildren(ctx context.Context, req *pb.ListChildrenRequest) (*pb.ListChildrenResponse, error) {
-	log.Printf("Received request to list children for path: %s\n", req.Path)
-
-	children := s.Index.GetChildren(req.Path)
-
-	return &pb.ListChildrenResponse{Children: children}, nil
-}
-
 // GetEventStream retrieves event stream details from the specified path
 func (s *NexusServer) GetEventStream(ctx context.Context, req *pb.GetPathRequest) (*pb.GetEventStreamResponse, error) {
 	log.Printf("Received event stream request for path: %s\n", req.Path)
@@ -108,4 +99,22 @@ func (s *NexusServer) GetDataset(ctx context.Context, req *pb.GetPathRequest) (*
 	}
 
 	return &pb.GetDatasetResponse{Dataset: dataset}, nil
+}
+
+func (s *NexusServer) GetPathType(ctx context.Context, req *pb.GetPathRequest) (*pb.GetPathTypeResponse, error) {
+	pathType, err := s.Index.GetType(req.Path)
+	if err != nil {
+		return &pb.GetPathTypeResponse{Error: err.Error()}, nil
+	}
+
+	return &pb.GetPathTypeResponse{PathType: pathType}, nil
+}
+
+// ListChildren implements the endpoint for listing children nodes
+func (s *NexusServer) GetChildren(ctx context.Context, req *pb.GetChildrenRequest) (*pb.GetChildrenResponse, error) {
+	log.Printf("Received request to list children for path: %s\n", req.Path)
+
+	children := s.Index.GetChildren(req.Path)
+
+	return &pb.GetChildrenResponse{Children: children}, nil
 }
