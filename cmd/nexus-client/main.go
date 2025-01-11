@@ -74,7 +74,7 @@ func main() {
 		}
 		switch os.Args[2] {
 		case "value":
-			value, err := client.ConsumeValue(path)
+			value, err := client.GetValue(path)
 			if err != nil {
 				fmt.Println("Failed to consume value:", err)
 				os.Exit(1)
@@ -82,14 +82,14 @@ func main() {
 			fmt.Printf("Consumed value: %v\n", value)
 		case "dataset":
 			fmt.Println("Consuming dataset...")
-			dataset, err := client.ConsumeDataset(path)
+			dataset, err := client.GetDataset(path)
 			if err != nil {
 				fmt.Println("Failed to consume dataset:", err)
 				os.Exit(1)
 			}
 			fmt.Printf("Consumed dataset: %v\n", dataset)
 		case "event":
-			eventStream, err := client.ConsumeEventStream(path)
+			eventStream, err := client.GetEventStream(path)
 			if err != nil {
 				fmt.Println("Failed to consume event stream:", err)
 				os.Exit(1)
@@ -113,7 +113,7 @@ func main() {
 		}
 		fmt.Printf("Children of path '%s':\n", path)
 		for _, child := range children {
-			fmt.Println(child)
+			fmt.Println(path + "/" + child)
 		}
 	default:
 		fmt.Println("Unknown command. Use 'publish' or 'consume'.")

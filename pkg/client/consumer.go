@@ -15,8 +15,8 @@ import (
 	"github.com/IBM/sarama"
 )
 
-// ConsumeValue reads a single value from the specified path
-func (n *NexusClient) ConsumeValue(path string) (*pb.DirectValue, error) {
+// GetValue reads a single value from the specified path
+func (n *NexusClient) GetValue(path string) (*pb.DirectValue, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -29,8 +29,8 @@ func (n *NexusClient) ConsumeValue(path string) (*pb.DirectValue, error) {
 	return res.Value, nil
 }
 
-// ConsumeEventStream subscribes to a Kafka topic and processes events in real-time
-func (n *NexusClient) ConsumeEventStream(path string) (<-chan []byte, error) {
+// GetEventStream subscribes to a Kafka topic and processes events in real-time
+func (n *NexusClient) GetEventStream(path string) (<-chan []byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -84,8 +84,8 @@ func (n *NexusClient) ConsumeEventStream(path string) (<-chan []byte, error) {
 	return messageChan, nil
 }
 
-// ConsumeDataset reads data from either a file or database table
-func (n *NexusClient) ConsumeDataset(path string) ([][]string, error) {
+// GetDataset reads data from either a file or database table
+func (n *NexusClient) GetDataset(path string) ([][]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
