@@ -123,10 +123,10 @@ func main() {
 		}
 	case "consume":
 		var path string
-		if len(os.Args) > 2 {
-			path = os.Args[2]
-		} else {
+		if len(os.Args) < 3 {
 			path = "/" // Default to root if no path is provided
+		} else {
+			path = os.Args[3]
 		}
 		switch os.Args[2] {
 		case "value":
@@ -137,6 +137,7 @@ func main() {
 			}
 			fmt.Printf("Consumed value: %v\n", value)
 		case "dataset":
+			fmt.Println("Consuming dataset...")
 			dataset, err := ConsumeDataset(conn, path)
 			if err != nil {
 				fmt.Println("Failed to consume dataset:", err)
