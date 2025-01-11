@@ -103,6 +103,7 @@ func (t *Trie) GetChildren(path string) []string {
 		for childSegment := range t.Root.Children {
 			children = append(children, childSegment)
 		}
+		log.Printf("Children of path '%s': %v\n", path, children)
 		return children
 	}
 
@@ -117,14 +118,13 @@ func (t *Trie) GetChildren(path string) []string {
 		}
 	}
 
-	log.Printf("Children of path '%s': %v\n", path, node.Children)
-
 	// Collect all child paths
 	var children []string
 	for childSegment := range node.Children {
-		children = append(children, path+"/"+childSegment)
+		children = append(children, childSegment)
 	}
 
+	log.Printf("Children of path '%s': %v\n", path, children)
 	return children
 }
 
