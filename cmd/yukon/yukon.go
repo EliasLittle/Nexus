@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"google.golang.org/grpc"
 	// Importing the nexus-client package using a relative path
 )
 
@@ -20,7 +19,7 @@ var baseStyle = lipgloss.NewStyle().
 
 type model struct {
 	table    table.Model
-	conn     *grpc.ClientConn
+	client   *nc.NexusClient
 	path     string
 	children []string
 	err      error
@@ -54,7 +53,7 @@ func initialModel() model {
 
 	return model{
 		table:    t,
-		conn:     conn,
+		client:   nc.NewNexusClient(conn),
 		path:     "/",
 		children: []string{},
 		err:      err,
@@ -66,7 +65,7 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) fetchChildren() tea.Msg {
-	children, err := nc.GetChildren(m.conn, m.path)
+	children, err := m.client.GetChildren(m.path)
 	if err != nil {
 		return errMsg{err}
 	}
@@ -75,8 +74,8 @@ func (m model) fetchChildren() tea.Msg {
 	for _, child := range children {
 		dataType := "directory" // default assumption
 		// Try to get data type if exists
-		if data, err := nc.Get(m.conn, child); err == nil && data != nil {
-			dataType = "data" // you might want to be more specific based on the data
+		if pathType, err := m.client.GetPathType(child); err == nil {
+			dataType = pathType
 		}
 		rows = append(rows, table.Row{child, dataType})
 	}

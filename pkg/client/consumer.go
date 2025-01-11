@@ -13,17 +13,29 @@ import (
 	pb "nexus/pkg/proto"
 
 	"github.com/IBM/sarama"
-	"google.golang.org/grpc"
 )
 
-// ConsumeEventStream subscribes to a Kafka topic and processes events in real-time
-func ConsumeEventStream(conn *grpc.ClientConn, path string) (<-chan []byte, error) {
-	client := pb.NewNexusServiceClient(conn)
+// ConsumeValue reads a single value from the specified path
+func (n *NexusClient) ConsumeValue(path string) (*pb.DirectValue, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req := &pb.GetPathRequest{Path: path}
-	res, err := client.GetEventStream(ctx, req)
+	res, err := n.Client.GetValue(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Value, nil
+}
+
+// ConsumeEventStream subscribes to a Kafka topic and processes events in real-time
+func (n *NexusClient) ConsumeEventStream(path string) (<-chan []byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &pb.GetPathRequest{Path: path}
+	res, err := n.Client.GetEventStream(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get stream details: %v", err)
 	}
@@ -73,13 +85,12 @@ func ConsumeEventStream(conn *grpc.ClientConn, path string) (<-chan []byte, erro
 }
 
 // ConsumeDataset reads data from either a file or database table
-func ConsumeDataset(conn *grpc.ClientConn, path string) ([][]string, error) {
-	client := pb.NewNexusServiceClient(conn)
+func (n *NexusClient) ConsumeDataset(path string) ([][]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req := &pb.GetPathRequest{Path: path}
-	res, err := client.GetDataset(ctx, req)
+	res, err := n.Client.GetDataset(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dataset details: %v", err)
 	}
@@ -189,20 +200,4 @@ func queryTable(table *pb.DatabaseTable) ([][]string, error) {
 	}
 
 	return result, nil
-}
-
-// ConsumeValue reads a single value from the specified path
-func ConsumeValue(conn *grpc.ClientConn, path string) (*pb.DirectValue, error) {
-	client := pb.NewNexusServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	req := &pb.GetPathRequest{Path: path}
-	res, err := client.GetValue(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.Value, nil
 }

@@ -13,6 +13,16 @@ import (
 
 const DefaultConnection = "localhost:50051" // Default connection string
 
+type NexusClient struct {
+	Client pb.NexusServiceClient
+}
+
+func NewNexusClient(conn *grpc.ClientConn) *NexusClient {
+	return &NexusClient{
+		Client: pb.NewNexusServiceClient(conn),
+	}
+}
+
 func CreateGRPCConnection(connStr string) (*grpc.ClientConn, error) {
 	conn, err := grpc.NewClient(connStr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -46,18 +56,29 @@ func CreateDataset(filePath string) *pb.Dataset {
 	}
 }
 
-func GetChildren(conn *grpc.ClientConn, path string) ([]string, error) {
-	client := pb.NewNexusServiceClient(conn)
-
+func (n *NexusClient) GetChildren(path string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	req := &pb.ListChildrenRequest{Path: path}
-	resp, err := client.ListChildren(ctx, req)
+	req := &pb.GetChildrenRequest{Path: path}
+	resp, err := n.Client.GetChildren(ctx, req)
 	if err != nil {
 		fmt.Println("Error listing children:", err)
 		return nil, err
 	}
 
 	return resp.Children, nil
+}
+
+func (n *NexusClient) GetPathType(path string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &pb.GetPathRequest{Path: path}
+	resp, err := n.Client.GetPathType(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.PathType, nil
 }

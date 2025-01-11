@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: nexus-client publish|consume|list")
 		os.Exit(1)
@@ -29,6 +30,8 @@ func main() {
 		}
 	}
 
+	client := nc.NewNexusClient(conn)
+
 	switch os.Args[1] {
 	case "publish":
 		if len(os.Args) < 4 {
@@ -39,21 +42,21 @@ func main() {
 		switch os.Args[2] {
 		case "dataset":
 			dataset := nc.CreateDataset(os.Args[4])
-			err = nc.PublishDataset(conn, path, dataset)
+			err = client.PublishDataset(path, dataset)
 			if err != nil {
 				fmt.Println("Failed to publish dataset:", err)
 				os.Exit(1)
 			}
 		case "event":
 			eventStream := nc.CreateEventStream(os.Args[4])
-			err = nc.PublishEventStream(conn, path, eventStream)
+			err = client.PublishEventStream(path, eventStream)
 			if err != nil {
 				fmt.Println("Failed to publish event stream:", err)
 				os.Exit(1)
 			}
 		case "value":
 			directValue := nc.CreateDirectValue(os.Args[4])
-			err = nc.PublishValue(conn, path, directValue)
+			err = client.PublishValue(path, directValue)
 			if err != nil {
 				fmt.Println("Failed to publish value:", err)
 				os.Exit(1)
@@ -71,7 +74,7 @@ func main() {
 		}
 		switch os.Args[2] {
 		case "value":
-			value, err := nc.ConsumeValue(conn, path)
+			value, err := client.ConsumeValue(path)
 			if err != nil {
 				fmt.Println("Failed to consume value:", err)
 				os.Exit(1)
@@ -79,14 +82,14 @@ func main() {
 			fmt.Printf("Consumed value: %v\n", value)
 		case "dataset":
 			fmt.Println("Consuming dataset...")
-			dataset, err := nc.ConsumeDataset(conn, path)
+			dataset, err := client.ConsumeDataset(path)
 			if err != nil {
 				fmt.Println("Failed to consume dataset:", err)
 				os.Exit(1)
 			}
 			fmt.Printf("Consumed dataset: %v\n", dataset)
 		case "event":
-			eventStream, err := nc.ConsumeEventStream(conn, path)
+			eventStream, err := client.ConsumeEventStream(path)
 			if err != nil {
 				fmt.Println("Failed to consume event stream:", err)
 				os.Exit(1)
@@ -103,7 +106,7 @@ func main() {
 		} else {
 			path = "/" // Default to root if no path is provided
 		}
-		children, err := nc.GetChildren(conn, path)
+		children, err := client.GetChildren(path)
 		if err != nil {
 			fmt.Println("Failed to get children:", err)
 			os.Exit(1)
