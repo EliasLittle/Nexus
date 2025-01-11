@@ -10,7 +10,6 @@ OUTPUT_DIR = pkg
 # Targets
 .PHONY: all clean proto build-client build-server run-client run-server
 
-all: clean proto build-client build-server
 
 # Clean up generated files
 clean:
@@ -23,19 +22,22 @@ proto:
     --go-grpc_out=$(OUTPUT_DIR) --go-grpc_opt=paths=source_relative \
 	$(PROTO_FILES)
 
-# Build the Go client application
-build-client:
-	@echo "Building the Go client application..."
-	go build -o nexus-client ./cmd/nexus-client
+# Build the Go application based on the provided target
+build:
+	@echo "Building the Go application: $(target)"
+	go build -o $(target) ./cmd/$(target)
 
-# Build the Go server application
-build-server:
-	@echo "Building the Go server application..."
-	go build -o nexus-server ./cmd/nexus-server
+# Define specific targets for client and server
+client:
+	$(MAKE) build target=nexus-client
 
-build-yukon:
-	@echo "Building the Go Yukon application..."
-	go build -o yukon ./cmd/yukon
+server:
+	$(MAKE) build target=nexus-server
+
+yukon:
+	$(MAKE) build target=yukon
+
+all: client server yukon
 
 # Run the client application
 run-client: build-client
