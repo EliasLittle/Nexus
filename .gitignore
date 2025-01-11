@@ -1,3 +1,19 @@
+# Ignore binary files
+*.bin
+*.exe
+*.dll
+*.so
+*.o
+*.class
+*.jar
+*.app
+*.dmg
+*.msi
+*.pkg
+
+# Ignore specific binaries
 nexus-client
 nexus-server
-.vscode/*
+
+# Ignore .vscode directory
+.vscode/
