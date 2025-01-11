@@ -1,71 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
-	pb "nexus/pkg/proto"
-
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	nc "nexus/pkg/client"
 )
-
-const defaultConnection = "localhost:50051" // Default connection string
-
-func createGRPCConnection(connStr string) (*grpc.ClientConn, error) {
-	conn, err := grpc.NewClient(connStr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, err
-	}
-	return conn, nil
-}
-
-func createDirectValue(value string) *pb.DirectValue {
-	return &pb.DirectValue{
-		Value: &pb.DirectValue_StringValue{StringValue: value},
-	}
-}
-
-func createEventStream(topic string) *pb.EventStream {
-	return &pb.EventStream{
-		Server: "localhost:9092",
-		Topic:  topic,
-	}
-}
-
-func createDataset(filePath string) *pb.Dataset {
-	return &pb.Dataset{
-		Dataset: &pb.Dataset_IndividualFile{
-			IndividualFile: &pb.IndividualFile{
-				FileType:    "csv",
-				FilePath:    filePath,
-				ColumnNames: []string{"id", "name", "email"},
-			},
-		},
-	}
-}
-
-func listChildren(conn *grpc.ClientConn, path string) {
-	client := pb.NewNexusServiceClient(conn)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	req := &pb.ListChildrenRequest{Path: path}
-	resp, err := client.ListChildren(ctx, req)
-	if err != nil {
-		fmt.Println("Error listing children:", err)
-		return
-	}
-
-	fmt.Printf("Children of path '%s':\n", path)
-	for _, child := range resp.Children {
-		fmt.Println(child)
-	}
-}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -73,7 +14,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	conn, err := createGRPCConnection(defaultConnection)
+	conn, err := nc.CreateGRPCConnection(nc.DefaultConnection)
 	if err != nil {
 		fmt.Println("Failed to create gRPC connection:", err)
 		os.Exit(1)
@@ -81,7 +22,7 @@ func main() {
 	defer conn.Close()
 
 	if len(os.Args) > 4 && strings.HasPrefix(os.Args[4], "conn=") {
-		conn, err = createGRPCConnection(strings.TrimPrefix(os.Args[4], "conn="))
+		conn, err = nc.CreateGRPCConnection(strings.TrimPrefix(os.Args[4], "conn="))
 		if err != nil {
 			fmt.Println("Failed to create gRPC connection with conn=", strings.TrimPrefix(os.Args[4], "conn="), " :", err)
 			os.Exit(1)
@@ -97,22 +38,22 @@ func main() {
 		path := os.Args[3]
 		switch os.Args[2] {
 		case "dataset":
-			dataset := createDataset(os.Args[4])
-			err = PublishDataset(conn, path, dataset)
+			dataset := nc.CreateDataset(os.Args[4])
+			err = nc.PublishDataset(conn, path, dataset)
 			if err != nil {
 				fmt.Println("Failed to publish dataset:", err)
 				os.Exit(1)
 			}
 		case "event":
-			eventStream := createEventStream(os.Args[4])
-			err = PublishEventStream(conn, path, eventStream)
+			eventStream := nc.CreateEventStream(os.Args[4])
+			err = nc.PublishEventStream(conn, path, eventStream)
 			if err != nil {
 				fmt.Println("Failed to publish event stream:", err)
 				os.Exit(1)
 			}
 		case "value":
-			directValue := createDirectValue(os.Args[4])
-			err = PublishValue(conn, path, directValue)
+			directValue := nc.CreateDirectValue(os.Args[4])
+			err = nc.PublishValue(conn, path, directValue)
 			if err != nil {
 				fmt.Println("Failed to publish value:", err)
 				os.Exit(1)
@@ -130,7 +71,7 @@ func main() {
 		}
 		switch os.Args[2] {
 		case "value":
-			value, err := ConsumeValue(conn, path)
+			value, err := nc.ConsumeValue(conn, path)
 			if err != nil {
 				fmt.Println("Failed to consume value:", err)
 				os.Exit(1)
@@ -138,14 +79,14 @@ func main() {
 			fmt.Printf("Consumed value: %v\n", value)
 		case "dataset":
 			fmt.Println("Consuming dataset...")
-			dataset, err := ConsumeDataset(conn, path)
+			dataset, err := nc.ConsumeDataset(conn, path)
 			if err != nil {
 				fmt.Println("Failed to consume dataset:", err)
 				os.Exit(1)
 			}
 			fmt.Printf("Consumed dataset: %v\n", dataset)
 		case "event":
-			eventStream, err := ConsumeEventStream(conn, path)
+			eventStream, err := nc.ConsumeEventStream(conn, path)
 			if err != nil {
 				fmt.Println("Failed to consume event stream:", err)
 				os.Exit(1)
@@ -162,7 +103,15 @@ func main() {
 		} else {
 			path = "/" // Default to root if no path is provided
 		}
-		listChildren(conn, path)
+		children, err := nc.GetChildren(conn, path)
+		if err != nil {
+			fmt.Println("Failed to get children:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Children of path '%s':\n", path)
+		for _, child := range children {
+			fmt.Println(child)
+		}
 	default:
 		fmt.Println("Unknown command. Use 'publish' or 'consume'.")
 		os.Exit(1)

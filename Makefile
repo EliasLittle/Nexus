@@ -33,6 +33,10 @@ build-server:
 	@echo "Building the Go server application..."
 	go build -o nexus-server ./cmd/nexus-server
 
+build-yukon:
+	@echo "Building the Go Yukon application..."
+	go build -o yukon ./cmd/yukon
+
 # Run the client application
 run-client: build-client
 	@echo "Running the client application..."
