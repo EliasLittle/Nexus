@@ -8,6 +8,10 @@
 ./nexus-client publish value /testing/h 105
 ./nexus-client publish value /testing/i 106
 ./nexus-client publish value /testing/j 107
+./nexus-client publish value /testing/alpha 108
+./nexus-client publish value /testing/alpha_beta 109
+./nexus-client publish value /testing/alpha_gamma 110
+./nexus-client publish value /testing/alphabet 'abc'
 
 ./nexus-client publish dataset /testing/dataset/a ./tests/example_a.csv
 ./nexus-client publish dataset /testing/dataset/b ./tests/example_b.csv
