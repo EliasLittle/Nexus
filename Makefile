@@ -35,7 +35,7 @@ server:
 	$(MAKE) build target=nexus-server
 
 yukon:
-	$(MAKE) build target=yukon
+	rm -f yukon; $(MAKE) build target=yukon
 
 all: client server yukon
 
