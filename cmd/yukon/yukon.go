@@ -140,6 +140,51 @@ type errMsg struct {
 	err error
 }
 
+func (m *model) filterChildren() (tea.Model, tea.Cmd) {
+	// Fetch all children first
+	children, err := m.client.GetChildren(m.path)
+	if err != nil {
+		fmt.Printf("Error fetching children: %v\n", err)
+		return m, nil
+	}
+
+	lastSegment := strings.Split(m.searchInput, "/")[len(strings.Split(m.searchInput, "/"))-1]
+
+	// Filter rows based on search input
+	filteredRows := []table.Row{}
+	for _, child := range children {
+		if strings.Contains(strings.ToLower(child), strings.ToLower(lastSegment)) {
+			dataType := "directory" // default assumption
+			if pathType, err := m.client.GetPathType(child); err == nil {
+				dataType = pathType
+			}
+			filteredRows = append(filteredRows, table.Row{child, dataType})
+		}
+	}
+
+	m.table.SetRows(filteredRows)
+	return m, nil
+}
+
+func (m model) moveUp() (tea.Model, tea.Cmd) {
+	if m.path != "/" {
+		// Go up one level
+		lastSlash := strings.LastIndex(m.path[:len(m.path)-1], "/")
+		if lastSlash == 0 {
+			m.path = "/"
+		} else {
+			m.path = m.path[:lastSlash+1]
+		}
+		m.isLeafNode = false
+		return m, m.fetchChildren
+	}
+	return m, nil
+}
+
+func (m model) moveDown() (tea.Model, tea.Cmd) {
+	return m, nil
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -218,47 +263,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	m.table, cmd = m.table.Update(msg)
 	return m, cmd
-}
-
-func (m *model) filterChildren() (tea.Model, tea.Cmd) {
-	// Fetch all children first
-	children := m.children
-
-	lastSegment := strings.Split(m.searchInput, "/")[len(strings.Split(m.searchInput, "/"))-1]
-
-	// Filter rows based on search input
-	filteredRows := []table.Row{}
-	for _, child := range children {
-		if strings.Contains(strings.ToLower(child), strings.ToLower(lastSegment)) {
-			dataType := "directory" // default assumption
-			if pathType, err := m.client.GetPathType(child); err == nil {
-				dataType = pathType
-			}
-			filteredRows = append(filteredRows, table.Row{child, dataType})
-		}
-	}
-
-	m.table.SetRows(filteredRows)
-	return m, nil
-}
-
-func (m model) moveUp() (tea.Model, tea.Cmd) {
-	if m.path != "/" {
-		// Go up one level
-		lastSlash := strings.LastIndex(m.path[:len(m.path)-1], "/")
-		if lastSlash == 0 {
-			m.path = "/"
-		} else {
-			m.path = m.path[:lastSlash+1]
-		}
-		m.isLeafNode = false
-		return m, m.fetchChildren
-	}
-	return m, nil
-}
-
-func (m model) moveDown() (tea.Model, tea.Cmd) {
-	return m, nil
 }
 
 func (m model) View() string {
