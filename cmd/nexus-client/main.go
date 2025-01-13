@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	nc "nexus/pkg/client"
+	pb "nexus/pkg/proto"
 )
 
 func main() {
@@ -74,12 +75,22 @@ func main() {
 		}
 		switch os.Args[2] {
 		case "value":
-			value, err := client.GetValue(path)
+			resultPtr, err := client.GetValue(path)
 			if err != nil {
 				fmt.Println("Failed to consume value:", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Consumed value: %v\n", value)
+			switch v := resultPtr.Value.(type) {
+			case *pb.DirectValue_StringValue:
+				fmt.Printf("\"%s\"\n", v.StringValue.Value)
+			case *pb.DirectValue_IntValue:
+				fmt.Printf("%d\n", v.IntValue.Value)
+			case *pb.DirectValue_FloatValue:
+				fmt.Printf("%.2f\n", v.FloatValue.Value)
+			default:
+				fmt.Println("Unknown value type.")
+				os.Exit(1)
+			}
 		case "dataset":
 			fmt.Println("Consuming dataset...")
 			dataset, err := client.GetDataset(path)
