@@ -31,10 +31,27 @@ func CreateGRPCConnection(connStr string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func CreateDirectValue(value string) *pb.DirectValue {
-	return &pb.DirectValue{
-		Value: &pb.DirectValue_StringValue{StringValue: value},
+func CreateDirectValue(value interface{}) *pb.DirectValue {
+	var directValue *pb.DirectValue
+
+	switch v := value.(type) {
+	case string:
+		directValue = &pb.DirectValue{
+			Value: &pb.DirectValue_StringValue{StringValue: &pb.StringValue{Value: v}},
+		}
+	case int:
+		directValue = &pb.DirectValue{
+			Value: &pb.DirectValue_IntValue{IntValue: &pb.IntValue{Value: int32(v)}},
+		}
+	case float64:
+		directValue = &pb.DirectValue{
+			Value: &pb.DirectValue_FloatValue{FloatValue: &pb.FloatValue{Value: float32(v)}},
+		}
+	default:
+		return nil // or handle the error as needed
 	}
+
+	return directValue
 }
 
 func CreateEventStream(topic string) *pb.EventStream {
