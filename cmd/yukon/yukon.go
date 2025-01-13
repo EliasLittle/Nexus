@@ -8,9 +8,9 @@ import (
 	nc "nexus/pkg/client"
 	pb "nexus/pkg/proto"
 
-	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/bubbles/v2/table"
+	tea "github.com/charmbracelet/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss/v2"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -64,12 +64,12 @@ func initialModel() model {
 		lastKeyMsg:  "",
 		isLeafNode:  false,
 		searchInput: "",
-		isSearching: true,
+		isSearching: false,
 	}
 }
 
-func (m model) Init() tea.Cmd {
-	return m.fetchChildren
+func (m model) Init() (tea.Model, tea.Cmd) {
+	return m, m.fetchChildren
 }
 
 func (m model) fetchChildren() tea.Msg {
@@ -143,33 +143,36 @@ type errMsg struct {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	fmt.Printf("Update called with msg %s", msg)
-
-	switch msg := msg.(type) {
+	switch msg_type := msg.(type) {
 	case tea.KeyMsg:
-		m.lastKeyMsg = msg.String()
+		m.lastKeyMsg = msg_type.String()
 		switch m.isSearching {
 		case true:
 			switch m.lastKeyMsg {
+			case "esc":
+				m.isSearching = false
+				return m, nil
 			case "backspace":
 				if len(m.searchInput) > 0 {
 					m.searchInput = m.searchInput[:len(m.searchInput)-1]
 				}
-				return m, m.filterChildren()
+				return m.filterChildren()
 			case "/":
-				m.searchInput += msg.String()
+				m.searchInput += msg_type.String()
 
 				m.path = m.searchInput
 				return m, m.fetchChildren
+			case "ctrl+c":
+				return m, tea.Quit
 			default:
 				// Update search input with typed characters
-				m.searchInput += msg.String()
+				m.searchInput += msg_type.String()
 				// Filter children based on search input
-				return m, m.filterChildren()
+				return m.filterChildren()
 			}
 		case false:
 			switch m.lastKeyMsg {
-			case "q":
+			case "q", "ctrl+c":
 				return m, tea.Quit
 			case "enter":
 				if len(m.table.Rows()) > 0 {
@@ -190,47 +193,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, m.fetchChildren
 					}
 				}
-			case "backspace":
+			case "esc", "backspace":
 				return m.moveUp()
 			case "/":
 				m.isSearching = true // Enable search mode
 				m.searchInput = m.path
 				return m, nil
-			}
-		}
-
-	case tea.KeyType:
-		fmt.Println("Key pressed:", msg.String())
-		m.lastKeyMsg = msg.String()
-		switch m.lastKeyMsg {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "esc":
-			if m.isSearching {
-				m.isSearching = false
+			default:
 				return m, nil
-			} else {
-				return m.moveUp()
 			}
 		}
 
 	case childrenMsg:
-		m.table.SetRows(msg.rows)
+		m.table.SetRows(msg_type.rows)
 		return m, nil
 
 	case errMsg:
-		m.err = msg.err
+		m.err = msg_type.err
 		return m, nil
 
 	default:
-		fmt.Println("Unhandled message type:", msg)
+		return m, nil
 	}
 
 	m.table, cmd = m.table.Update(msg)
 	return m, cmd
 }
 
-func (m *model) filterChildren() tea.Cmd {
+func (m *model) filterChildren() (tea.Model, tea.Cmd) {
 	// Fetch all children first
 	children := m.children
 
@@ -249,7 +239,7 @@ func (m *model) filterChildren() tea.Cmd {
 	}
 
 	m.table.SetRows(filteredRows)
-	return nil
+	return m, nil
 }
 
 func (m model) moveUp() (tea.Model, tea.Cmd) {
@@ -279,12 +269,16 @@ func (m model) View() string {
 	searchBar := ""
 	if m.isSearching {
 		searchBar = lipgloss.NewStyle().
-			BorderStyle(lipgloss.NormalBorder()).
+			BorderStyle(lipgloss.ThickBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Bold(true).
 			Render(fmt.Sprintf(" Search: %s ", m.searchInput))
 	} else {
-		searchBar = fmt.Sprintf("Search: %s ", m.searchInput)
+		searchBar = lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Bold(false).
+			Render(fmt.Sprintf(" Search: %s ", m.searchInput))
 	}
 
 	return baseStyle.Render(
@@ -297,7 +291,7 @@ func (m model) View() string {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	p := tea.NewProgram(initialModel(), tea.WithKeyboardEnhancements())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running program: %v", err)
 		os.Exit(1)
