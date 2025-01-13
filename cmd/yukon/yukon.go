@@ -89,17 +89,6 @@ func (m model) fetchChildren() tea.Msg {
 		rows = append(rows, table.Row{child, dataType})
 	}
 
-	// Filter rows based on search input if search bar is active
-	if m.isSearching {
-		filteredRows := []table.Row{}
-		for _, row := range rows {
-			if strings.Contains(strings.ToLower(row[0]), strings.ToLower(m.searchInput)) {
-				filteredRows = append(filteredRows, row)
-			}
-		}
-		rows = filteredRows
-	}
-
 	return childrenMsg{rows}
 }
 
@@ -140,12 +129,12 @@ type errMsg struct {
 	err error
 }
 
-func (m *model) filterChildren() (tea.Model, tea.Cmd) {
+func (m *model) filterChildren() tea.Msg {
 	// Fetch all children first
 	children, err := m.client.GetChildren(m.path)
 	if err != nil {
 		fmt.Printf("Error fetching children: %v\n", err)
-		return m, nil
+		return errMsg{err}
 	}
 
 	lastSegment := strings.Split(m.searchInput, "/")[len(strings.Split(m.searchInput, "/"))-1]
@@ -162,8 +151,7 @@ func (m *model) filterChildren() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	m.table.SetRows(filteredRows)
-	return m, nil
+	return childrenMsg{rows: filteredRows}
 }
 
 func (m model) moveUp() (tea.Model, tea.Cmd) {
@@ -199,9 +187,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "backspace":
 				if len(m.searchInput) > 0 {
+					deletedChar := m.searchInput[len(m.searchInput)-1]
 					m.searchInput = m.searchInput[:len(m.searchInput)-1]
+					if deletedChar == '/' {
+						m.path = m.searchInput[:strings.LastIndex(m.searchInput, "/")]
+						return m, m.filterChildren
+					}
+					return m, m.filterChildren
 				}
-				return m.filterChildren()
+				return m, nil
+			case "enter":
+				m.isSearching = false
+				return m, m.filterChildren
 			case "/":
 				m.searchInput += msg_type.String()
 
@@ -213,7 +210,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Update search input with typed characters
 				m.searchInput += msg_type.String()
 				// Filter children based on search input
-				return m.filterChildren()
+				return m, m.filterChildren
 			}
 		case false:
 			switch m.lastKeyMsg {
@@ -245,7 +242,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput = m.path
 				return m, nil
 			default:
-				return m, nil
+				m.table, cmd = m.table.Update(msg)
+				return m, cmd
 			}
 		}
 
