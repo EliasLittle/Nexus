@@ -87,12 +87,27 @@ message DatabaseTable {
   string table_name = 5; // Table name
 }
 
+// Define a message for string values
+message StringValue {
+    string value = 1;
+}
+
+// Define a message for integer values
+message IntValue {
+    int32 value = 1; // or int64, depending on your needs
+}
+
+// Define a message for float values
+message FloatValue {
+    float value = 1; // or double, depending on your needs
+}
+
 message DirectValue {
-  oneof value {
-    string string_value = 1; // Type of data structure (e.g., "string")
-    int32 int_value = 2;     // Integer value
-    float float_value = 3;   // Float value
-  }
+    oneof value {
+        StringValue string_value = 1;
+        IntValue int_value = 2;
+        FloatValue float_value = 3;
+    }
 }
 
 // Request/Response messages for Consumers
