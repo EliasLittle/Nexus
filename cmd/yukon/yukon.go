@@ -58,7 +58,7 @@ func initialModel() model {
 
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search..."
-	searchInput.Focus()
+	searchInput.Blur()
 	searchInput.CharLimit = 156
 	//searchInput.Width = 20
 
@@ -164,12 +164,15 @@ func (m *model) filterChildren() tea.Msg {
 func (m model) moveUp() (tea.Model, tea.Cmd) {
 	if m.path != "/" {
 		// Go up one level
-		lastSlash := strings.LastIndex(m.path[:len(m.path)-1], "/")
-		if lastSlash == 0 {
+		switch lastSlash := strings.LastIndex(m.path[:len(m.path)-1], "/"); lastSlash {
+		case -1:
 			m.path = "/"
-		} else {
+		case 0:
+			m.path = "/"
+		default:
 			m.path = m.path[:lastSlash+1]
 		}
+
 		m.isLeafNode = false
 		m.searchInput.SetValue(m.path)
 		return m, m.fetchChildren
@@ -227,7 +230,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput, _ = m.searchInput.Update(msg)
 				return m, m.filterChildren
 			case "/":
-				return m.moveDown(m.searchInput.Value() + "/")
+				m.searchInput, _ = m.searchInput.Update(msg)
+				return m.moveDown(m.searchInput.Value())
 			default:
 				m.searchInput, _ = m.searchInput.Update(msg)
 				return m, m.filterChildren
@@ -293,7 +297,8 @@ func (m model) View() string {
 
 	return baseStyle.Render(
 		//fmt.Sprintf("Current path: %s\n\n isSearching: %t\n\n Last Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
-		fmt.Sprintf("%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
+		fmt.Sprintf("Path: %s\n\n%s\n\nPress q to quit, / to search, enter to navigate, backspace/esc to go up",
+			m.path,
 			searchBar+m.table.View(),
 		))
 }
