@@ -89,10 +89,18 @@ You can publish values and datasets using the Nexus client. For example:
 - [ ] Add support for stream filtering
 
 ### Yukon
-- [ ] Minimal navigation and info display
-- [ ] Type out path
+- [x] Minimal navigation and info display
+- [x] Type out path
 - [ ] Display data
+    - [ ] Display leaf node
+        - [x] Display values
+        - [ ] Display datasets
+        - [ ] Display streams
+    - [ ] Display data of non-leaf node
+- [ ] Add help message with keybindings
+- [ ] Tab completion if only one child
 - [ ] Create a web interface for easier interaction
+
 
 ## Contributing
 
