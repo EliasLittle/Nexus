@@ -9,6 +9,7 @@ import (
 	pb "nexus/pkg/proto"
 
 	"github.com/charmbracelet/bubbles/v2/table"
+	"github.com/charmbracelet/bubbles/v2/textinput"
 	tea "github.com/charmbracelet/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss/v2"
 )
@@ -25,7 +26,7 @@ type model struct {
 	err         error
 	lastKeyMsg  string
 	isLeafNode  bool
-	searchInput string
+	searchInput textinput.Model
 	isSearching bool
 }
 
@@ -55,6 +56,12 @@ func initialModel() model {
 
 	conn, err := nc.CreateGRPCConnection(nc.DefaultConnection)
 
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Search..."
+	searchInput.Focus()
+	searchInput.CharLimit = 156
+	//searchInput.Width = 20
+
 	return model{
 		table:       t,
 		client:      nc.NewNexusClient(conn),
@@ -63,7 +70,7 @@ func initialModel() model {
 		err:         err,
 		lastKeyMsg:  "",
 		isLeafNode:  false,
-		searchInput: "",
+		searchInput: searchInput,
 		isSearching: false,
 	}
 }
@@ -137,7 +144,7 @@ func (m *model) filterChildren() tea.Msg {
 		return errMsg{err}
 	}
 
-	lastSegment := strings.Split(m.searchInput, "/")[len(strings.Split(m.searchInput, "/"))-1]
+	lastSegment := strings.Split(m.searchInput.Value(), "/")[len(strings.Split(m.searchInput.Value(), "/"))-1]
 
 	// Filter rows based on search input
 	filteredRows := []table.Row{}
@@ -164,54 +171,68 @@ func (m model) moveUp() (tea.Model, tea.Cmd) {
 			m.path = m.path[:lastSlash+1]
 		}
 		m.isLeafNode = false
+		m.searchInput.SetValue(m.path)
 		return m, m.fetchChildren
 	}
 	return m, nil
 }
 
-func (m model) moveDown() (tea.Model, tea.Cmd) {
+func (m model) moveDown(newPath string) (tea.Model, tea.Cmd) {
+	// Check if the selected path has children
+	if children, err := m.client.GetChildren(newPath); err == nil {
+		if len(children) == 0 {
+			if !m.isLeafNode {
+				m.isLeafNode = true
+				m.path = newPath
+				m.searchInput.SetValue(newPath)
+				return m, m.fetchData
+			}
+			// If the path is a leaf node, do nothing
+			return m, nil
+		}
+		m.isLeafNode = false
+		m.path = newPath
+		m.searchInput.SetValue(newPath)
+		return m, m.fetchChildren
+	}
 	return m, nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	switch msg_type := msg.(type) {
+	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		m.lastKeyMsg = msg_type.String()
+		m.lastKeyMsg = msg.String()
 		switch m.isSearching {
 		case true:
 			switch m.lastKeyMsg {
+			case "ctrl+c":
+				return m, tea.Quit
 			case "esc":
 				m.isSearching = false
-				return m, nil
-			case "backspace":
-				if len(m.searchInput) > 0 {
-					deletedChar := m.searchInput[len(m.searchInput)-1]
-					m.searchInput = m.searchInput[:len(m.searchInput)-1]
-					if deletedChar == '/' {
-						m.path = m.searchInput[:strings.LastIndex(m.searchInput, "/")]
-						return m, m.filterChildren
-					}
-					return m, m.filterChildren
-				}
+				m.searchInput.Blur()
 				return m, nil
 			case "enter":
 				m.isSearching = false
+				m.searchInput.Blur()
+				m.path = m.searchInput.Value()
+				return m, m.filterChildren
+			case "backspace":
+				char := m.searchInput.Value()[len(m.searchInput.Value())-1]
+				if char == '/' {
+					m.searchInput.SetValue(m.searchInput.Value()[:len(m.searchInput.Value())-1])
+					return m.moveUp()
+				}
+				m.searchInput, _ = m.searchInput.Update(msg)
 				return m, m.filterChildren
 			case "/":
-				m.searchInput += msg_type.String()
-
-				m.path = m.searchInput
-				return m, m.fetchChildren
-			case "ctrl+c":
-				return m, tea.Quit
+				return m.moveDown(m.searchInput.Value() + "/")
 			default:
-				// Update search input with typed characters
-				m.searchInput += msg_type.String()
-				// Filter children based on search input
+				m.searchInput, _ = m.searchInput.Update(msg)
 				return m, m.filterChildren
 			}
+
 		case false:
 			switch m.lastKeyMsg {
 			case "q", "ctrl+c":
@@ -220,26 +241,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.table.Rows()) > 0 {
 					selected := m.table.SelectedRow()[0]
 					newPath := m.path + selected + "/"
-					// Check if the selected path has children
-					if children, err := m.client.GetChildren(newPath); err == nil {
-						if len(children) == 0 {
-							if !m.isLeafNode {
-								m.isLeafNode = true
-								m.path = newPath
-								return m, m.fetchData
-							}
-							return m, nil
-						}
-						m.isLeafNode = false
-						m.path = newPath
-						return m, m.fetchChildren
-					}
+					return m.moveDown(newPath)
 				}
 			case "esc", "backspace":
 				return m.moveUp()
 			case "/":
-				m.isSearching = true // Enable search mode
-				m.searchInput = m.path
+				m.isSearching = true
+				m.searchInput.Focus()
 				return m, nil
 			default:
 				m.table, cmd = m.table.Update(msg)
@@ -248,11 +256,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case childrenMsg:
-		m.table.SetRows(msg_type.rows)
+		m.table.SetRows(msg.rows)
 		return m, nil
 
 	case errMsg:
-		m.err = msg_type.err
+		m.err = msg.err
 		return m, nil
 
 	default:
@@ -274,20 +282,18 @@ func (m model) View() string {
 			BorderStyle(lipgloss.ThickBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Bold(true).
-			Render(fmt.Sprintf(" Search: %s ", m.searchInput))
+			Render(fmt.Sprintf(" Search: %s ", m.searchInput.View()))
 	} else {
 		searchBar = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("240")).
 			Bold(false).
-			Render(fmt.Sprintf(" Search: %s ", m.searchInput))
+			Render(fmt.Sprintf(" Search: %s ", m.searchInput.View()))
 	}
 
 	return baseStyle.Render(
-		fmt.Sprintf("Current path: %s\n\n isSearching: %t\n\n Last Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
-			m.path,
-			m.isSearching,
-			m.lastKeyMsg,
+		//fmt.Sprintf("Current path: %s\n\n isSearching: %t\n\n Last Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
+		fmt.Sprintf("%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
 			searchBar+m.table.View(),
 		))
 }
