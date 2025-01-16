@@ -42,7 +42,7 @@ type NexusServiceClient interface {
 	StoreValue(ctx context.Context, in *StoreValueRequest, opts ...grpc.CallOption) (*StoreValueResponse, error)
 	// Consumer endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
-	GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetValueResponse, error)
+	GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*Value, error)
 	GetDataset(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetDatasetResponse, error)
 	GetEventStream(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetEventStreamResponse, error)
 	GetPathType(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetPathTypeResponse, error)
@@ -107,9 +107,9 @@ func (c *nexusServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NexusService_SubscribeClient = grpc.ServerStreamingClient[Event]
 
-func (c *nexusServiceClient) GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetValueResponse, error) {
+func (c *nexusServiceClient) GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*Value, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetValueResponse)
+	out := new(Value)
 	err := c.cc.Invoke(ctx, NexusService_GetValue_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ type NexusServiceServer interface {
 	StoreValue(context.Context, *StoreValueRequest) (*StoreValueResponse, error)
 	// Consumer endpoints
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
-	GetValue(context.Context, *GetPathRequest) (*GetValueResponse, error)
+	GetValue(context.Context, *GetPathRequest) (*Value, error)
 	GetDataset(context.Context, *GetPathRequest) (*GetDatasetResponse, error)
 	GetEventStream(context.Context, *GetPathRequest) (*GetEventStreamResponse, error)
 	GetPathType(context.Context, *GetPathRequest) (*GetPathTypeResponse, error)
@@ -197,7 +197,7 @@ func (UnimplementedNexusServiceServer) StoreValue(context.Context, *StoreValueRe
 func (UnimplementedNexusServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedNexusServiceServer) GetValue(context.Context, *GetPathRequest) (*GetValueResponse, error) {
+func (UnimplementedNexusServiceServer) GetValue(context.Context, *GetPathRequest) (*Value, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetValue not implemented")
 }
 func (UnimplementedNexusServiceServer) GetDataset(context.Context, *GetPathRequest) (*GetDatasetResponse, error) {

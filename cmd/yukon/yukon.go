@@ -115,11 +115,11 @@ func (m model) fetchData() tea.Msg {
 
 	var valueStr string
 	switch v := data.Value.(type) {
-	case *pb.DirectValue_IntValue:
+	case *pb.Value_IntValue:
 		valueStr = fmt.Sprintf("%d", v.IntValue.Value)
-	case *pb.DirectValue_FloatValue:
+	case *pb.Value_FloatValue:
 		valueStr = fmt.Sprintf("%f", v.FloatValue.Value)
-	case *pb.DirectValue_StringValue:
+	case *pb.Value_StringValue:
 		valueStr = v.StringValue.Value
 	default:
 		valueStr = "unknown type"
@@ -212,15 +212,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.lastKeyMsg {
 			case "ctrl+c":
 				return m, tea.Quit
-			case "esc":
+			case "esc", "enter":
 				m.isSearching = false
 				m.searchInput.Blur()
 				return m, nil
-			case "enter":
-				m.isSearching = false
-				m.searchInput.Blur()
-				m.path = m.searchInput.Value()
-				return m, m.filterChildren
 			case "backspace":
 				char := m.searchInput.Value()[len(m.searchInput.Value())-1]
 				if char == '/' {

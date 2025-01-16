@@ -16,7 +16,7 @@ import (
 )
 
 // GetValue reads a single value from the specified path
-func (n *NexusClient) GetValue(path string) (*pb.DirectValue, error) {
+func (n *NexusClient) GetValue(path string) (*pb.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -26,7 +26,7 @@ func (n *NexusClient) GetValue(path string) (*pb.DirectValue, error) {
 		return nil, err
 	}
 
-	return res.Value, nil
+	return res, nil
 }
 
 // GetEventStream subscribes to a Kafka topic and processes events in real-time

@@ -56,8 +56,8 @@ func main() {
 				os.Exit(1)
 			}
 		case "value":
-			directValue := nc.CreateDirectValue(os.Args[4])
-			err = client.PublishValue(path, directValue)
+			value := nc.CreateValue(os.Args[4])
+			err = client.PublishValue(path, value)
 			if err != nil {
 				fmt.Println("Failed to publish value:", err)
 				os.Exit(1)
@@ -80,12 +80,17 @@ func main() {
 				fmt.Println("Failed to consume value:", err)
 				os.Exit(1)
 			}
+
+			if resultPtr == nil {
+				fmt.Println("No value found at path:", path)
+				os.Exit(1)
+			}
 			switch v := resultPtr.Value.(type) {
-			case *pb.DirectValue_StringValue:
+			case *pb.Value_StringValue:
 				fmt.Printf("\"%s\"\n", v.StringValue.Value)
-			case *pb.DirectValue_IntValue:
+			case *pb.Value_IntValue:
 				fmt.Printf("%d\n", v.IntValue.Value)
-			case *pb.DirectValue_FloatValue:
+			case *pb.Value_FloatValue:
 				fmt.Printf("%.2f\n", v.FloatValue.Value)
 			default:
 				fmt.Println("Unknown value type.")

@@ -12,7 +12,7 @@ service NexusService {
 
   // Consumer endpoints
   rpc Subscribe (SubscribeRequest) returns (stream Event);
-  rpc GetValue (GetPathRequest) returns (GetValueResponse);
+  rpc GetValue (GetPathRequest) returns (Value);
   rpc GetDataset (GetPathRequest) returns (GetDatasetResponse);
   rpc GetEventStream (GetPathRequest) returns (GetEventStreamResponse);
   rpc GetPathType (GetPathRequest) returns (GetPathTypeResponse);
@@ -45,7 +45,7 @@ message RegisterDatasetResponse {
 
 message StoreValueRequest {
   string path = 1; // Path in the data Trie
-  DirectValue direct_value = 2;
+  Value value = 2;
 }
 
 message StoreValueResponse {
@@ -102,14 +102,6 @@ message FloatValue {
     float value = 1; // or double, depending on your needs
 }
 
-message DirectValue {
-    oneof value {
-        StringValue string_value = 1;
-        IntValue int_value = 2;
-        FloatValue float_value = 3;
-    }
-}
-
 // Request/Response messages for Consumers
 message SubscribeRequest {
   string path = 1;
@@ -124,9 +116,13 @@ message GetPathRequest {
   string path = 1; // Path in the data Trie
 }
 
-message GetValueResponse {
-  DirectValue value = 1;
-  string error = 2; // Error message if any
+message Value {
+  oneof value {
+    StringValue string_value = 1;
+    IntValue int_value = 2;
+    FloatValue float_value = 3;
+  }
+  string error = 4; // Error message if any
 }
 
 // Common messages

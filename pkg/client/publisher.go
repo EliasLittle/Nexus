@@ -36,13 +36,13 @@ func (n *NexusClient) PublishDataset(path string, dataset *pb.Dataset) error {
 }
 
 // PublishValue stores a value directly to the Nexus server
-func (n *NexusClient) PublishValue(path string, directValue *pb.DirectValue) error {
+func (n *NexusClient) PublishValue(path string, value *pb.Value) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req := &pb.StoreValueRequest{
-		Path:        path,
-		DirectValue: directValue,
+		Path:  path,
+		Value: value,
 	}
 
 	_, err := n.Client.StoreValue(ctx, req)

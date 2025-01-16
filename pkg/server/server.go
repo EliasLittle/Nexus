@@ -42,29 +42,44 @@ func (s *NexusServer) RegisterDataset(ctx context.Context, req *pb.RegisterDatas
 func (s *NexusServer) StoreValue(ctx context.Context, req *pb.StoreValueRequest) (*pb.StoreValueResponse, error) {
 	log.Printf("Received value storage request for path: %s\n", req.Path)
 
-	s.Index.Insert(req.Path, req.DirectValue)
+	// Handle the oneof value types
+	switch value := req.Value.Value.(type) {
+	case *pb.Value_StringValue:
+		s.Index.Insert(req.Path, value.StringValue)
+	case *pb.Value_IntValue:
+		s.Index.Insert(req.Path, value.IntValue)
+	case *pb.Value_FloatValue:
+		s.Index.Insert(req.Path, value.FloatValue)
+	default:
+		return &pb.StoreValueResponse{Success: false, Error: "invalid value type"}, nil
+	}
 
 	//s.Index.Traverse() // Print the Trie after the update
 	return &pb.StoreValueResponse{Success: true}, nil
 }
 
 // GetValue implements the consumer endpoint for retrieving values
-func (s *NexusServer) GetValue(ctx context.Context, req *pb.GetPathRequest) (*pb.GetValueResponse, error) {
+func (s *NexusServer) GetValue(ctx context.Context, req *pb.GetPathRequest) (*pb.Value, error) {
 	log.Printf("Received value request for path: %s\n", req.Path)
 
 	value, err := s.Index.Get(req.Path)
+	log.Printf("Value: %v", value)
 
 	if err != nil {
-		return &pb.GetValueResponse{Error: err.Error()}, nil
+		return &pb.Value{Error: err.Error()}, nil
 	}
 
-	// Check if the value is of type *pb.DirectValue
-	directValue, ok := value.(*pb.DirectValue) // Use pointer type assertion
-	if !ok {
-		return &pb.GetValueResponse{Error: "value is not of type DirectValue"}, nil
+	switch v := value.(type) {
+	case *pb.StringValue:
+		return &pb.Value{Value: &pb.Value_StringValue{StringValue: v}}, nil
+	case *pb.IntValue:
+		return &pb.Value{Value: &pb.Value_IntValue{IntValue: v}}, nil
+	case *pb.FloatValue:
+		return &pb.Value{Value: &pb.Value_FloatValue{FloatValue: v}}, nil
+	default:
+		log.Printf("Value is not of type StringValue, IntValue, or FloatValue: %v", v)
+		return &pb.Value{Error: "value is not of type StringValue, IntValue, or FloatValue"}, nil
 	}
-
-	return &pb.GetValueResponse{Value: directValue}, nil
 }
 
 // GetEventStream retrieves event stream details from the specified path
