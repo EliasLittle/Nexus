@@ -46,6 +46,10 @@ You can publish values and datasets using the Nexus client. For example:
 - [ ] Save server state to disk and load from disk on startup
 - [ ] Implement user authentication and authorization
 - [ ] Improve error handling and logging
+- [ ] Watch and auto-publish files updates, directories (new files, subdirs), and DBs (new tables)
+- [ ] Remote hosting
+    - [ ] Local data storage (Redis)
+    - [ ] Remote data storage (S3, GCS, etc.)
 - [ ] Documentation for API endpoints
 - [ ] Implement data filtering
 - [ ] Implement data transformation
@@ -69,6 +73,7 @@ You can publish values and datasets using the Nexus client. For example:
     - [ ] Registering directories
     - [ ] Registering datasets from a remote source
     - [ ] Registering DB tables
+        - [ ] Registering table queries
 - [ ] Accessing Datasets
     - [x] Accessing individual files
     - [ ] Accessing directories
@@ -78,6 +83,7 @@ You can publish values and datasets using the Nexus client. For example:
 ### Event Streaming
 - [ ] Register streams
     - [ ] Register kafka streams
+    - [ ] Websocket streams
     - [ ] Register file streams
     - [ ] Register DB streams
     - [ ] Register direct tcp streams
