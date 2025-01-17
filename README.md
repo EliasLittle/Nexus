@@ -56,6 +56,7 @@ You can publish values and datasets using the Nexus client. For example:
 - [ ] Implement data compression
 - [ ] Implement data encryption
 - [ ] Implement data deduplication
+- [ ] Seperate out registering and publishing
 
 ### Values
 - [x] Publishing Values
@@ -97,6 +98,7 @@ You can publish values and datasets using the Nexus client. For example:
 ### Yukon
 - [x] Minimal navigation and info display
 - [x] Type out path
+- [ ] Command line path argument
 - [ ] Display data
     - [ ] Display leaf node
         - [x] Display values
