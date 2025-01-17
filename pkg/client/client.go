@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"time"
@@ -51,7 +51,7 @@ func CreateIndividualFile(filePath string) *pb.IndividualFile {
 }
 
 func CreateDirectory(directoryPath string) *pb.Directory {
-	files, err := ioutil.ReadDir(directoryPath) // Read the directory contents
+	files, err := os.ReadDir(directoryPath) // Read the directory contents
 	if err != nil {
 		fmt.Println("Error reading directory:", err)
 		return nil
