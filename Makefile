@@ -37,7 +37,7 @@ server:
 yukon:
 	rm -f yukon; $(MAKE) build target=yukon
 
-all: client server yukon
+all: proto client server yukon
 
 # Run the client application
 run-client: build-client
