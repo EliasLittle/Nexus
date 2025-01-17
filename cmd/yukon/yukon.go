@@ -88,7 +88,7 @@ func (m model) fetchChildren() tea.Msg {
 
 	rows := []table.Row{}
 	for _, child := range children {
-		dataType := "directory" // default assumption
+		dataType := "Branch" // default assumption
 		// Try to get data type if exists
 		if pathType, err := m.client.GetPathType(child); err == nil {
 			dataType = pathType
@@ -158,7 +158,7 @@ func (m *model) filterChildren() tea.Msg {
 	filteredRows := []table.Row{}
 	for _, child := range children {
 		if strings.Contains(strings.ToLower(child), strings.ToLower(lastSegment)) {
-			dataType := "directory" // default assumption
+			dataType := "Branch" // default assumption
 			if pathType, err := m.client.GetPathType(child); err == nil {
 				dataType = pathType
 			}
@@ -300,9 +300,10 @@ func (m model) View() string {
 
 	return baseStyle.Render(
 		//fmt.Sprintf("Current path: %s\n\n isSearching: %t\n\n Last Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
-		fmt.Sprintf("Path: %s\n\n%s\n\nPress q to quit, / to search, enter to navigate, backspace/esc to go up",
+		fmt.Sprintf("Path: %s\n\n%s\n\n%s\n\nPress q to quit, / to search, enter to navigate, backspace/esc to go up",
 			m.path,
-			searchBar+m.table.View(),
+			searchBar,
+			m.table.View(),
 		))
 }
 
