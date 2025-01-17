@@ -105,6 +105,11 @@ You can publish values and datasets using the Nexus client. For example:
         - [ ] Display datasets
         - [ ] Display streams
     - [ ] Display data of non-leaf node
+- [ ] Add method to __ data
+    - [ ] add
+    - [ ] delete
+    - [ ] update
+    - [ ] query
 - [ ] Add help message with keybindings
 - [ ] Tab completion if only one child
 - [ ] Create a web interface for easier interaction
