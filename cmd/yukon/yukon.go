@@ -100,7 +100,7 @@ func (m model) fetchChildren() tea.Msg {
 }
 
 func (m model) fetchData() tea.Msg {
-	data, err := m.client.GetValue(m.path)
+	data, err := m.client.Get(m.path)
 	if err != nil {
 		// Log the error for debugging
 		fmt.Printf("Error fetching data from path '%s': %v\n", m.path, err)
@@ -114,15 +114,23 @@ func (m model) fetchData() tea.Msg {
 	}
 
 	var valueStr string
-	switch v := data.Value.(type) {
-	case *pb.Value_IntValue:
-		valueStr = fmt.Sprintf("%d", v.IntValue.Value)
-	case *pb.Value_FloatValue:
-		valueStr = fmt.Sprintf("%f", v.FloatValue.Value)
-	case *pb.Value_StringValue:
-		valueStr = v.StringValue.Value
+	switch v := data.(type) {
+	case *pb.IntValue:
+		valueStr = fmt.Sprintf("%d", v.Value)
+	case *pb.FloatValue:
+		valueStr = fmt.Sprintf("%f", v.Value)
+	case *pb.StringValue:
+		valueStr = v.Value
+	case *pb.DatabaseTable:
+		valueStr = fmt.Sprintf("DatabaseTable: %s", v.TableName)
+	case *pb.Directory:
+		valueStr = fmt.Sprintf("Directory: %s", v.DirectoryPath)
+	case *pb.IndividualFile:
+		valueStr = fmt.Sprintf("File (%s): %s", v.FileType, v.FilePath)
+	case *pb.EventStream:
+		valueStr = fmt.Sprintf("EventStream: %s@%s", v.Topic, v.Server)
 	default:
-		valueStr = "unknown type"
+		valueStr = fmt.Sprintf("value: %v, has unknown type: %T", v, v)
 	}
 
 	return childrenMsg{rows: []table.Row{{"value", valueStr}}}

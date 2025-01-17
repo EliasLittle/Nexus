@@ -19,15 +19,14 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NexusService_RegisterEventStream_FullMethodName = "/nexus.NexusService/RegisterEventStream"
-	NexusService_RegisterDataset_FullMethodName     = "/nexus.NexusService/RegisterDataset"
-	NexusService_StoreValue_FullMethodName          = "/nexus.NexusService/StoreValue"
-	NexusService_Subscribe_FullMethodName           = "/nexus.NexusService/Subscribe"
-	NexusService_GetValue_FullMethodName            = "/nexus.NexusService/GetValue"
-	NexusService_GetDataset_FullMethodName          = "/nexus.NexusService/GetDataset"
-	NexusService_GetEventStream_FullMethodName      = "/nexus.NexusService/GetEventStream"
-	NexusService_GetPathType_FullMethodName         = "/nexus.NexusService/GetPathType"
-	NexusService_GetChildren_FullMethodName         = "/nexus.NexusService/GetChildren"
+	NexusService_RegisterEventStream_FullMethodName   = "/nexus.NexusService/RegisterEventStream"
+	NexusService_RegisterFile_FullMethodName          = "/nexus.NexusService/RegisterFile"
+	NexusService_RegisterDirectory_FullMethodName     = "/nexus.NexusService/RegisterDirectory"
+	NexusService_RegisterDatabaseTable_FullMethodName = "/nexus.NexusService/RegisterDatabaseTable"
+	NexusService_StoreValue_FullMethodName            = "/nexus.NexusService/StoreValue"
+	NexusService_Subscribe_FullMethodName             = "/nexus.NexusService/Subscribe"
+	NexusService_GetNode_FullMethodName               = "/nexus.NexusService/GetNode"
+	NexusService_GetChildren_FullMethodName           = "/nexus.NexusService/GetChildren"
 )
 
 // NexusServiceClient is the client API for NexusService service.
@@ -38,14 +37,13 @@ const (
 type NexusServiceClient interface {
 	// Publisher endpoints
 	RegisterEventStream(ctx context.Context, in *RegisterEventStreamRequest, opts ...grpc.CallOption) (*RegisterEventStreamResponse, error)
-	RegisterDataset(ctx context.Context, in *RegisterDatasetRequest, opts ...grpc.CallOption) (*RegisterDatasetResponse, error)
+	RegisterFile(ctx context.Context, in *RegisterFileRequest, opts ...grpc.CallOption) (*RegisterFileResponse, error)
+	RegisterDirectory(ctx context.Context, in *RegisterDirectoryRequest, opts ...grpc.CallOption) (*RegisterDirectoryResponse, error)
+	RegisterDatabaseTable(ctx context.Context, in *RegisterDatabaseTableRequest, opts ...grpc.CallOption) (*RegisterDatabaseTableResponse, error)
 	StoreValue(ctx context.Context, in *StoreValueRequest, opts ...grpc.CallOption) (*StoreValueResponse, error)
 	// Consumer endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
-	GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*Value, error)
-	GetDataset(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetDatasetResponse, error)
-	GetEventStream(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetEventStreamResponse, error)
-	GetPathType(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetPathTypeResponse, error)
+	GetNode(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetNodeResponse, error)
 	// Add this to the NexusService
 	GetChildren(ctx context.Context, in *GetChildrenRequest, opts ...grpc.CallOption) (*GetChildrenResponse, error)
 }
@@ -68,10 +66,30 @@ func (c *nexusServiceClient) RegisterEventStream(ctx context.Context, in *Regist
 	return out, nil
 }
 
-func (c *nexusServiceClient) RegisterDataset(ctx context.Context, in *RegisterDatasetRequest, opts ...grpc.CallOption) (*RegisterDatasetResponse, error) {
+func (c *nexusServiceClient) RegisterFile(ctx context.Context, in *RegisterFileRequest, opts ...grpc.CallOption) (*RegisterFileResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RegisterDatasetResponse)
-	err := c.cc.Invoke(ctx, NexusService_RegisterDataset_FullMethodName, in, out, cOpts...)
+	out := new(RegisterFileResponse)
+	err := c.cc.Invoke(ctx, NexusService_RegisterFile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nexusServiceClient) RegisterDirectory(ctx context.Context, in *RegisterDirectoryRequest, opts ...grpc.CallOption) (*RegisterDirectoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterDirectoryResponse)
+	err := c.cc.Invoke(ctx, NexusService_RegisterDirectory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *nexusServiceClient) RegisterDatabaseTable(ctx context.Context, in *RegisterDatabaseTableRequest, opts ...grpc.CallOption) (*RegisterDatabaseTableResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RegisterDatabaseTableResponse)
+	err := c.cc.Invoke(ctx, NexusService_RegisterDatabaseTable_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,40 +125,10 @@ func (c *nexusServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NexusService_SubscribeClient = grpc.ServerStreamingClient[Event]
 
-func (c *nexusServiceClient) GetValue(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*Value, error) {
+func (c *nexusServiceClient) GetNode(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetNodeResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Value)
-	err := c.cc.Invoke(ctx, NexusService_GetValue_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *nexusServiceClient) GetDataset(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetDatasetResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetDatasetResponse)
-	err := c.cc.Invoke(ctx, NexusService_GetDataset_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *nexusServiceClient) GetEventStream(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetEventStreamResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetEventStreamResponse)
-	err := c.cc.Invoke(ctx, NexusService_GetEventStream_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *nexusServiceClient) GetPathType(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetPathTypeResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetPathTypeResponse)
-	err := c.cc.Invoke(ctx, NexusService_GetPathType_FullMethodName, in, out, cOpts...)
+	out := new(GetNodeResponse)
+	err := c.cc.Invoke(ctx, NexusService_GetNode_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -165,14 +153,13 @@ func (c *nexusServiceClient) GetChildren(ctx context.Context, in *GetChildrenReq
 type NexusServiceServer interface {
 	// Publisher endpoints
 	RegisterEventStream(context.Context, *RegisterEventStreamRequest) (*RegisterEventStreamResponse, error)
-	RegisterDataset(context.Context, *RegisterDatasetRequest) (*RegisterDatasetResponse, error)
+	RegisterFile(context.Context, *RegisterFileRequest) (*RegisterFileResponse, error)
+	RegisterDirectory(context.Context, *RegisterDirectoryRequest) (*RegisterDirectoryResponse, error)
+	RegisterDatabaseTable(context.Context, *RegisterDatabaseTableRequest) (*RegisterDatabaseTableResponse, error)
 	StoreValue(context.Context, *StoreValueRequest) (*StoreValueResponse, error)
 	// Consumer endpoints
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
-	GetValue(context.Context, *GetPathRequest) (*Value, error)
-	GetDataset(context.Context, *GetPathRequest) (*GetDatasetResponse, error)
-	GetEventStream(context.Context, *GetPathRequest) (*GetEventStreamResponse, error)
-	GetPathType(context.Context, *GetPathRequest) (*GetPathTypeResponse, error)
+	GetNode(context.Context, *GetPathRequest) (*GetNodeResponse, error)
 	// Add this to the NexusService
 	GetChildren(context.Context, *GetChildrenRequest) (*GetChildrenResponse, error)
 	mustEmbedUnimplementedNexusServiceServer()
@@ -188,8 +175,14 @@ type UnimplementedNexusServiceServer struct{}
 func (UnimplementedNexusServiceServer) RegisterEventStream(context.Context, *RegisterEventStreamRequest) (*RegisterEventStreamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterEventStream not implemented")
 }
-func (UnimplementedNexusServiceServer) RegisterDataset(context.Context, *RegisterDatasetRequest) (*RegisterDatasetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RegisterDataset not implemented")
+func (UnimplementedNexusServiceServer) RegisterFile(context.Context, *RegisterFileRequest) (*RegisterFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterFile not implemented")
+}
+func (UnimplementedNexusServiceServer) RegisterDirectory(context.Context, *RegisterDirectoryRequest) (*RegisterDirectoryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterDirectory not implemented")
+}
+func (UnimplementedNexusServiceServer) RegisterDatabaseTable(context.Context, *RegisterDatabaseTableRequest) (*RegisterDatabaseTableResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterDatabaseTable not implemented")
 }
 func (UnimplementedNexusServiceServer) StoreValue(context.Context, *StoreValueRequest) (*StoreValueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StoreValue not implemented")
@@ -197,17 +190,8 @@ func (UnimplementedNexusServiceServer) StoreValue(context.Context, *StoreValueRe
 func (UnimplementedNexusServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
 }
-func (UnimplementedNexusServiceServer) GetValue(context.Context, *GetPathRequest) (*Value, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetValue not implemented")
-}
-func (UnimplementedNexusServiceServer) GetDataset(context.Context, *GetPathRequest) (*GetDatasetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDataset not implemented")
-}
-func (UnimplementedNexusServiceServer) GetEventStream(context.Context, *GetPathRequest) (*GetEventStreamResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetEventStream not implemented")
-}
-func (UnimplementedNexusServiceServer) GetPathType(context.Context, *GetPathRequest) (*GetPathTypeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPathType not implemented")
+func (UnimplementedNexusServiceServer) GetNode(context.Context, *GetPathRequest) (*GetNodeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNode not implemented")
 }
 func (UnimplementedNexusServiceServer) GetChildren(context.Context, *GetChildrenRequest) (*GetChildrenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetChildren not implemented")
@@ -251,20 +235,56 @@ func _NexusService_RegisterEventStream_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NexusService_RegisterDataset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RegisterDatasetRequest)
+func _NexusService_RegisterFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterFileRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NexusServiceServer).RegisterDataset(ctx, in)
+		return srv.(NexusServiceServer).RegisterFile(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NexusService_RegisterDataset_FullMethodName,
+		FullMethod: NexusService_RegisterFile_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).RegisterDataset(ctx, req.(*RegisterDatasetRequest))
+		return srv.(NexusServiceServer).RegisterFile(ctx, req.(*RegisterFileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NexusService_RegisterDirectory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterDirectoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NexusServiceServer).RegisterDirectory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NexusService_RegisterDirectory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NexusServiceServer).RegisterDirectory(ctx, req.(*RegisterDirectoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NexusService_RegisterDatabaseTable_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterDatabaseTableRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NexusServiceServer).RegisterDatabaseTable(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NexusService_RegisterDatabaseTable_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NexusServiceServer).RegisterDatabaseTable(ctx, req.(*RegisterDatabaseTableRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -298,74 +318,20 @@ func _NexusService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
 type NexusService_SubscribeServer = grpc.ServerStreamingServer[Event]
 
-func _NexusService_GetValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NexusService_GetNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetPathRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NexusServiceServer).GetValue(ctx, in)
+		return srv.(NexusServiceServer).GetNode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NexusService_GetValue_FullMethodName,
+		FullMethod: NexusService_GetNode_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).GetValue(ctx, req.(*GetPathRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NexusService_GetDataset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetPathRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NexusServiceServer).GetDataset(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NexusService_GetDataset_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).GetDataset(ctx, req.(*GetPathRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NexusService_GetEventStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetPathRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NexusServiceServer).GetEventStream(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NexusService_GetEventStream_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).GetEventStream(ctx, req.(*GetPathRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _NexusService_GetPathType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetPathRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(NexusServiceServer).GetPathType(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: NexusService_GetPathType_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NexusServiceServer).GetPathType(ctx, req.(*GetPathRequest))
+		return srv.(NexusServiceServer).GetNode(ctx, req.(*GetPathRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -400,28 +366,24 @@ var NexusService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NexusService_RegisterEventStream_Handler,
 		},
 		{
-			MethodName: "RegisterDataset",
-			Handler:    _NexusService_RegisterDataset_Handler,
+			MethodName: "RegisterFile",
+			Handler:    _NexusService_RegisterFile_Handler,
+		},
+		{
+			MethodName: "RegisterDirectory",
+			Handler:    _NexusService_RegisterDirectory_Handler,
+		},
+		{
+			MethodName: "RegisterDatabaseTable",
+			Handler:    _NexusService_RegisterDatabaseTable_Handler,
 		},
 		{
 			MethodName: "StoreValue",
 			Handler:    _NexusService_StoreValue_Handler,
 		},
 		{
-			MethodName: "GetValue",
-			Handler:    _NexusService_GetValue_Handler,
-		},
-		{
-			MethodName: "GetDataset",
-			Handler:    _NexusService_GetDataset_Handler,
-		},
-		{
-			MethodName: "GetEventStream",
-			Handler:    _NexusService_GetEventStream_Handler,
-		},
-		{
-			MethodName: "GetPathType",
-			Handler:    _NexusService_GetPathType_Handler,
+			MethodName: "GetNode",
+			Handler:    _NexusService_GetNode_Handler,
 		},
 		{
 			MethodName: "GetChildren",

@@ -1,21 +1,17 @@
 package client
 
 import (
-	"context"
 	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
-	"log"
 	"os"
-	"time"
 
 	pb "nexus/pkg/proto"
-
-	"github.com/IBM/sarama"
 )
 
 // GetValue reads a single value from the specified path
+/*
 func (n *NexusClient) GetValue(path string) (*pb.Value, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -28,7 +24,9 @@ func (n *NexusClient) GetValue(path string) (*pb.Value, error) {
 
 	return res, nil
 }
+*/
 
+/*
 // GetEventStream subscribes to a Kafka topic and processes events in real-time
 func (n *NexusClient) GetEventStream(path string) (<-chan []byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -83,8 +81,10 @@ func (n *NexusClient) GetEventStream(path string) (<-chan []byte, error) {
 
 	return messageChan, nil
 }
+*/
 
 // GetDataset reads data from either a file or database table
+/*
 func (n *NexusClient) GetDataset(path string) ([][]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -113,9 +113,10 @@ func (n *NexusClient) GetDataset(path string) ([][]string, error) {
 		return nil, fmt.Errorf("unsupported dataset type")
 	}
 }
+*/
 
 // readFile reads data from a CSV file
-func readFile(filePath string) ([][]string, error) {
+func ReadFile(filePath string) ([][]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %v", err)
@@ -145,7 +146,7 @@ func generateConnectionString(table *pb.DatabaseTable, username, password string
 }
 
 // queryTable reads all data from a database table
-func queryTable(table *pb.DatabaseTable) ([][]string, error) {
+func QueryTable(table *pb.DatabaseTable) ([][]string, error) {
 	// Get the username from the environment variable
 	username := os.Getenv("USER") // For Unix-like systems
 	//	if username == "" {
@@ -201,3 +202,23 @@ func queryTable(table *pb.DatabaseTable) ([][]string, error) {
 
 	return result, nil
 }
+
+// GetData retrieves data from the specified path, returning either a Value or a Dataset
+/*
+func (n *NexusClient) GetData(path string) (interface{}, error) {
+	// First, try to get a Value
+	value, err := n.GetValue(path)
+	if err == nil {
+		return value, nil
+	}
+
+	// If getting a Value fails, try to get a Dataset
+	dataset, err := n.GetDataset(path)
+	if err == nil {
+		return dataset, nil
+	}
+
+	// If both attempts fail, return the last error
+	return nil, fmt.Errorf("failed to get data from path: %s, errors: value error: %v, dataset error: %v", path, err, err)
+}
+*/

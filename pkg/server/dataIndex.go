@@ -33,7 +33,7 @@ func NewTrie(filepath ...string) (*Trie, error) {
 		trie.Traverse()
 		return trie, nil
 	} else {
-		trie := &Trie{Root: &TrieNode{Children: make(map[string]*TrieNode)}}
+		trie := &Trie{Root: &TrieNode{Children: make(map[string]*TrieNode), ValueType: "InternalNode"}}
 		return trie, nil
 	}
 }
@@ -44,14 +44,17 @@ func (t *Trie) Insert(path string, value interface{}) {
 	segments := splitPath(path) // Customizable segmenter
 	for _, segment := range segments {
 		if _, exists := node.Children[segment]; !exists {
-			node.Children[segment] = &TrieNode{Children: make(map[string]*TrieNode)}
+
+			node.Children[segment] = &TrieNode{Children: make(map[string]*TrieNode), ValueType: "InternalNode"}
 		}
 		node = node.Children[segment]
 	}
 	// TODO: Think about if we want to store data in intermediate nodes and not just at the end of the path
 	node.IsEndOfPath = true
 	node.Value = value // Store the value at the end of the path
-	node.ValueType = reflect.TypeOf(value).Elem().Name()
+	valueType := reflect.TypeOf(value).Elem().Name()
+	log.Printf("Inserted value %v with type %s", value, valueType)
+	node.ValueType = valueType
 
 }
 
@@ -98,23 +101,7 @@ func (t *Trie) GetType(path string) (string, error) {
 		}
 		node = node.Children[segment]
 	}
-	if node.IsEndOfPath {
-		switch node.Value.(type) {
-		case *pb.EventStream:
-			return "EventStream", nil
-		case *pb.Dataset:
-			return "Dataset", nil
-		case *pb.StringValue:
-			return "StringValue", nil
-		case *pb.IntValue:
-			return "IntValue", nil
-		case *pb.FloatValue:
-			return "FloatValue", nil
-		default:
-			return "Unknown", nil
-		}
-	}
-	return "", fmt.Errorf("path does not point to a data type: %s", path)
+	return node.ValueType, nil
 }
 
 // GetChildren retrieves all direct children of a given path
@@ -151,9 +138,7 @@ func (t *Trie) GetChildren(path string) []string {
 }
 
 // Get retrieves the value stored at the given path in the Trie
-func (t *Trie) Get(path string) (interface{}, error) {
-	t.Traverse()
-	log.Printf("Get| Path: %s", path)
+func (t *Trie) GetNode(path string) (*TrieNode, error) {
 	node := t.Root
 	segments := splitPath(path) // Customizable segmenter
 	for _, segment := range segments {
@@ -162,12 +147,9 @@ func (t *Trie) Get(path string) (interface{}, error) {
 		}
 		node = node.Children[segment]
 	}
-	log.Printf("Get| Node: %v", node)
 	if node.IsEndOfPath {
-		log.Printf("Get| Is end of path")
-		return node.Value, nil // Return the value if it exists
+		return node, nil // Return the value if it exists
 	}
-	log.Printf("Get| Is not end of path")
 	return nil, fmt.Errorf("path exists but has no value: %s", path) // Return an error if the path exists but has no value
 }
 
@@ -224,18 +206,16 @@ func loadNodeValues(node *TrieNode) {
 		switch node.ValueType {
 		case "EventStream":
 			node.Value = &pb.EventStream{}
-		case "Dataset":
-			// Extract the actual dataset value from the representation
-			log.Printf("Found dataset")
-			switch node.Value.(type) {
-			case string:
-				node.Value = parseDatasetValue(node.Value.(string))
-			case map[string]interface{}:
-				log.Printf("Found dataset as map")
-				//node.Value = parseDatasetValue(node.Value.(map[string]interface{}))
-			default:
-				log.Printf("Failed to extract dataset value: %v", node.Value)
-			}
+		case "IndividualFile":
+			log.Printf("node.Value: %v", node.Value)
+			log.Printf("Found individual file")
+			node.Value = parseIndividualFile(node.Value)
+		case "Directory":
+			log.Printf("Found directory")
+			node.Value = parseDirectory(node.Value.(map[string]interface{}))
+		case "DatabaseTable":
+			log.Printf("Found database table")
+			node.Value = parseDatabaseTable(node.Value.(map[string]interface{}))
 		case "StringValue":
 			log.Printf("Found string value")
 			// Extract the actual string value from the representation
@@ -271,7 +251,51 @@ func loadNodeValues(node *TrieNode) {
 	}
 }
 
+func parseIndividualFile(nodeValue interface{}) *pb.IndividualFile {
+	if valueMap, ok := nodeValue.(map[string]interface{}); ok {
+		log.Printf("Successfully found individual file as map")
+		var columnNames []string
+		if cols, exists := valueMap["column_names"]; exists {
+			colStr := cols.(string)
+			columnNames = strings.Split(colStr, " ")
+		}
+		return &pb.IndividualFile{
+			FilePath:    valueMap["file_path"].(string),
+			FileType:    valueMap["file_type"].(string),
+			ColumnNames: columnNames,
+		}
+	}
+	return nil
+}
+
+func parseDirectory(nodeValue interface{}) *pb.Directory {
+	if valueMap, ok := nodeValue.(map[string]interface{}); ok {
+		log.Printf("Successfully found directory as map")
+		return &pb.Directory{
+			FileType:      valueMap["file_type"].(string),
+			DirectoryPath: valueMap["directory_path"].(string),
+			FileCount:     int32(valueMap["file_count"].(int)),
+		}
+	}
+	return nil
+}
+
+func parseDatabaseTable(nodeValue interface{}) *pb.DatabaseTable {
+	if valueMap, ok := nodeValue.(map[string]interface{}); ok {
+		log.Printf("Successfully found database table as map")
+		return &pb.DatabaseTable{
+			DbType:    valueMap["db_type"].(string),
+			Host:      valueMap["host"].(string),
+			Port:      int32(valueMap["port"].(int)),
+			DbName:    valueMap["db_name"].(string),
+			TableName: valueMap["table_name"].(string),
+		}
+	}
+	return nil
+}
+
 // Helper function to parse the dataset value from the string representation
+/*
 func parseDatasetValue(str string) *pb.Dataset {
 	// Assuming the format is "map[Dataset:map[IndividualFile:map[column_names:[id name email] file_path:./tests/example_a.csv file_type:csv]]]"
 	parts := strings.Split(str, "map[IndividualFile:")
@@ -292,3 +316,4 @@ func parseDatasetValue(str string) *pb.Dataset {
 		},
 	}
 }
+*/

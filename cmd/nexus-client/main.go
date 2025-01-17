@@ -7,6 +7,7 @@ import (
 
 	nc "nexus/pkg/client"
 	pb "nexus/pkg/proto"
+	"strconv"
 )
 
 func main() {
@@ -36,16 +37,48 @@ func main() {
 	switch os.Args[1] {
 	case "publish":
 		if len(os.Args) < 4 {
-			fmt.Println("Expected 'dataset', 'event', or 'value' as argument for publish, followed by a path")
+			fmt.Println(`
+			Usage: nexus-client publish <type> <path> <data>
+
+			Types:
+			file - Publish a file
+			directory - Publish a directory
+			DBTable - Publish a database table
+			event - Publish an event stream
+			value - Publish a value
+			`)
 			os.Exit(1)
 		}
 		path := os.Args[3]
 		switch os.Args[2] {
-		case "dataset":
-			dataset := nc.CreateDataset(os.Args[4])
-			err = client.PublishDataset(path, dataset)
+		case "file":
+			file := nc.CreateIndividualFile(os.Args[4])
+			err = client.PublishIndividualFile(path, file)
 			if err != nil {
 				fmt.Println("Failed to publish dataset:", err)
+				os.Exit(1)
+			}
+		case "directory":
+			directory := nc.CreateDirectory(os.Args[4])
+			err = client.PublishDirectory(path, directory)
+			if err != nil {
+				fmt.Println("Failed to publish directory:", err)
+				os.Exit(1)
+			}
+		case "DBTable":
+			if len(os.Args) < 8 {
+				fmt.Println(`Usage: nexus-client publish DBTable <path> <db_type> <host> <port> <table_name> <db_name>`)
+				os.Exit(1)
+			}
+			port, err := strconv.Atoi(os.Args[6])
+			if err != nil {
+				fmt.Println("Failed to convert port to int:", err)
+				os.Exit(1)
+			}
+			database := nc.CreateDatabaseTable(os.Args[4], os.Args[5], int32(port), os.Args[7], os.Args[8])
+			err = client.PublishDatabaseTable(path, database)
+			if err != nil {
+				fmt.Println("Failed to publish database table:", err)
 				os.Exit(1)
 			}
 		case "event":
@@ -56,63 +89,56 @@ func main() {
 				os.Exit(1)
 			}
 		case "value":
-			value := nc.CreateValue(os.Args[4])
-			err = client.PublishValue(path, value)
+			err = client.PublishValue(path, os.Args[4])
 			if err != nil {
 				fmt.Println("Failed to publish value:", err)
 				os.Exit(1)
 			}
 		default:
-			fmt.Println("Unknown publish type. Use 'dataset', 'event', or 'value'.")
+			fmt.Println("Unknown publish type. Use 'file', 'directory', 'DBTable', 'event', or 'value'.")
 			os.Exit(1)
 		}
 	case "consume":
 		var path string
-		if len(os.Args) < 3 {
+		if len(os.Args) < 2 {
 			path = "/" // Default to root if no path is provided
 		} else {
 			path = os.Args[3]
 		}
-		switch os.Args[2] {
-		case "value":
-			resultPtr, err := client.GetValue(path)
-			if err != nil {
-				fmt.Println("Failed to consume value:", err)
-				os.Exit(1)
-			}
+		data, err := client.Get(path)
+		if err != nil {
+			fmt.Println("Failed to consume value:", err)
+			os.Exit(1)
+		}
 
-			if resultPtr == nil {
-				fmt.Println("No value found at path:", path)
-				os.Exit(1)
-			}
-			switch v := resultPtr.Value.(type) {
-			case *pb.Value_StringValue:
-				fmt.Printf("\"%s\"\n", v.StringValue.Value)
-			case *pb.Value_IntValue:
-				fmt.Printf("%d\n", v.IntValue.Value)
-			case *pb.Value_FloatValue:
-				fmt.Printf("%.2f\n", v.FloatValue.Value)
-			default:
-				fmt.Println("Unknown value type.")
-				os.Exit(1)
-			}
-		case "dataset":
-			fmt.Println("Consuming dataset...")
-			dataset, err := client.GetDataset(path)
+		if data == nil {
+			fmt.Println("No data found at path:", path)
+			os.Exit(1)
+		}
+		switch v := data.(type) {
+		case *pb.StringValue:
+			fmt.Printf("\"%s\"\n", v.Value)
+		case *pb.IntValue:
+			fmt.Printf("%d\n", v.Value)
+		case *pb.FloatValue:
+			fmt.Printf("%.2f\n", v.Value)
+		case *pb.DatabaseTable:
+			fmt.Printf("Consumed dataset: %v\n", v.TableName)
+			fmt.Println(nc.QueryTable(v))
+		case *pb.IndividualFile:
+			fmt.Printf("Consumed dataset: %v\n", v.FilePath)
+			fileStr, err := nc.ReadFile(v.FilePath)
 			if err != nil {
-				fmt.Println("Failed to consume dataset:", err)
+				fmt.Println("Failed to read file:", err)
 				os.Exit(1)
 			}
-			fmt.Printf("Consumed dataset: %v\n", dataset)
-		case "event":
-			eventStream, err := client.GetEventStream(path)
-			if err != nil {
-				fmt.Println("Failed to consume event stream:", err)
-				os.Exit(1)
-			}
-			fmt.Printf("Consumed event stream: %v\n", eventStream)
+			fmt.Println(fileStr)
+		case *pb.Directory:
+			fmt.Printf("Consumed dataset: %v\n", v.DirectoryPath)
+		case *pb.EventStream:
+			fmt.Printf("Consumed dataset: %v\n", v.Topic)
 		default:
-			fmt.Println("Unknown consume type. Use 'value', 'dataset', or 'event'.")
+			//fmt.Printf("Unknown data type %s", reflect.TypeOf(v).Elem().Name())
 			os.Exit(1)
 		}
 	case "list":

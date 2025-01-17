@@ -7,15 +7,14 @@ option go_package = "nexus/pkg/proto";
 service NexusService {
   // Publisher endpoints
   rpc RegisterEventStream (RegisterEventStreamRequest) returns (RegisterEventStreamResponse);
-  rpc RegisterDataset (RegisterDatasetRequest) returns (RegisterDatasetResponse);
+  rpc RegisterFile (RegisterFileRequest) returns (RegisterFileResponse);
+  rpc RegisterDirectory (RegisterDirectoryRequest) returns (RegisterDirectoryResponse);
+  rpc RegisterDatabaseTable (RegisterDatabaseTableRequest) returns (RegisterDatabaseTableResponse);
   rpc StoreValue (StoreValueRequest) returns (StoreValueResponse);
 
   // Consumer endpoints
   rpc Subscribe (SubscribeRequest) returns (stream Event);
-  rpc GetValue (GetPathRequest) returns (Value);
-  rpc GetDataset (GetPathRequest) returns (GetDatasetResponse);
-  rpc GetEventStream (GetPathRequest) returns (GetEventStreamResponse);
-  rpc GetPathType (GetPathRequest) returns (GetPathTypeResponse);
+  rpc GetNode (GetPathRequest) returns (GetNodeResponse);
 
   // Add this to the NexusService
   rpc GetChildren (GetChildrenRequest) returns (GetChildrenResponse);
@@ -33,19 +32,43 @@ message RegisterEventStreamResponse {
   string error = 2;
 }
 
-message RegisterDatasetRequest {
+message RegisterFileRequest {
   string path = 1; // Path in the data Trie
-  Dataset dataset = 2;
+  IndividualFile individual_file = 2; // Individual file details
 }
 
-message RegisterDatasetResponse {
+message RegisterFileResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message RegisterDirectoryRequest {
+  string path = 1; // Path in the data Trie
+  Directory directory = 2; // Directory details
+}
+
+message RegisterDirectoryResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message RegisterDatabaseTableRequest {
+  string path = 1; // Path in the data Trie
+  DatabaseTable database_table = 2; // Database table details
+}
+
+message RegisterDatabaseTableResponse {
   bool success = 1;
   string error = 2;
 }
 
 message StoreValueRequest {
   string path = 1; // Path in the data Trie
-  Value value = 2;
+  oneof value {
+    StringValue string_value = 2; // Example of a specific type
+    IntValue int_value = 3; // Example of a specific type
+    FloatValue float_value = 4; // Example of a specific type
+  }
 }
 
 message StoreValueResponse {
@@ -62,7 +85,7 @@ message EventStream {
 message Dataset {
   oneof dataset {
     IndividualFile individual_file = 1;
-    MultiFileDirectory multi_file_directory = 2;
+    Directory directory = 2;
     DatabaseTable database_table = 3;
   }
 }
@@ -73,7 +96,7 @@ message IndividualFile {
   repeated string column_names = 3; // Optional column names
 }
 
-message MultiFileDirectory {
+message Directory {
   string file_type = 1; // e.g., "csv", "json"
   string directory_path = 2; // Path to the directory
   int32 file_count = 3; // Number of files
@@ -116,13 +139,19 @@ message GetPathRequest {
   string path = 1; // Path in the data Trie
 }
 
-message Value {
+message GetNodeResponse {
   oneof value {
     StringValue string_value = 1;
     IntValue int_value = 2;
     FloatValue float_value = 3;
+    IndividualFile individual_file = 4;
+    Directory directory = 5;
+    DatabaseTable database_table = 6;
+    EventStream event_stream = 7;
   }
-  string error = 4; // Error message if any
+  string value_type = 8;
+  bool is_end_of_path = 9;
+  string error = 10; // Error message if any
 }
 
 // Common messages
@@ -152,18 +181,6 @@ message GetChildrenRequest {
 message GetChildrenResponse {
   repeated string children = 1; // List of child paths
 }
-
-// New request/response messages for GetEventStream
-message GetEventStreamResponse {
-  EventStream event_stream = 1; // The requested event stream
-  string error = 2; // Error message if any
-}
-
-// New request/response messages for GetDataset
-message GetDatasetResponse {
-  Dataset dataset = 1; // The requested dataset
-  string error = 2; // Error message if any
-} 
 
 message GetPathTypeResponse {
   string path_type = 1; // The type of the path
