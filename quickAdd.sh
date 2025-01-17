@@ -13,7 +13,7 @@
 ./nexus-client publish value /testing/alpha_gamma 110
 ./nexus-client publish value /testing/alphabet 'abc'
 
-./nexus-client publish dataset /testing/dataset/a ./tests/example_a.csv
-./nexus-client publish dataset /testing/dataset/b ./tests/example_b.csv
-./nexus-client publish dataset /testing/dataset/c ./tests/example_c.csv
-./nexus-client publish dataset /testing/dataset/d ./tests/example_d.csv
+./nexus-client publish file /testing/dataset/a ./tests/example_a.csv
+./nexus-client publish file /testing/dataset/b ./tests/example_b.csv
+./nexus-client publish file /testing/dataset/c ./tests/example_c.csv
+./nexus-client publish file /testing/dataset/d ./tests/example_d.csv
