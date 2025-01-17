@@ -1,0 +1,29 @@
+{
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "age": 30,
+    "isActive": true,
+    "roles": ["user", "admin"],
+    "address": {
+        "street": "123 Main St",
+        "city": "Anytown",
+        "state": "CA",
+        "zip": "12345"
+    },
+    "preferences": {
+        "newsletter": true,
+        "notifications": false,
+        "theme": "dark"
+    },
+    "friends": [
+        {
+            "id": 2,
+            "name": "Jane Smith"
+        },
+        {
+            "id": 3,
+            "name": "Alice Johnson"
+        }
+    ]
+}

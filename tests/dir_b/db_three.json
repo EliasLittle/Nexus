@@ -1,0 +1,29 @@
+{
+    "id": 3,
+    "name": "Alice Johnson",
+    "email": "alice.johnson@example.com",
+    "age": 28,
+    "isActive": true,
+    "roles": ["user", "editor"],
+    "address": {
+        "street": "789 Oak St",
+        "city": "Sometown",
+        "state": "TX",
+        "zip": "13579"
+    },
+    "preferences": {
+        "newsletter": true,
+        "notifications": true,
+        "theme": "dark"
+    },
+    "friends": [
+        {
+            "id": 1,
+            "name": "John Doe"
+        },
+        {
+            "id": 2,
+            "name": "Jane Smith"
+        }
+    ]
+}

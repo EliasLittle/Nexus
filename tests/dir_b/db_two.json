@@ -1,0 +1,29 @@
+{
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "age": 25,
+    "isActive": false,
+    "roles": ["user"],
+    "address": {
+        "street": "456 Elm St",
+        "city": "Othertown",
+        "state": "NY",
+        "zip": "67890"
+    },
+    "preferences": {
+        "newsletter": false,
+        "notifications": true,
+        "theme": "light"
+    },
+    "friends": [
+        {
+            "id": 1,
+            "name": "John Doe"
+        },
+        {
+            "id": 4,
+            "name": "Bob Brown"
+        }
+    ]
+}

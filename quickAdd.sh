@@ -17,3 +17,6 @@
 ./nexus-client publish file /testing/dataset/b ./tests/example_b.csv
 ./nexus-client publish file /testing/dataset/c ./tests/example_c.csv
 ./nexus-client publish file /testing/dataset/d ./tests/example_d.csv
+
+./nexus-client publish directory /testing/dataset/dir_a ./tests/dir_a
+./nexus-client publish directory /testing/dataset/dir_b ./tests/dir_b
