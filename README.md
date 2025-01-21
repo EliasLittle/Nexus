@@ -13,6 +13,13 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
 3. **Value Store/Publishing (Redis)**
    - Small values can be sent directly to the Nexus server, allowing consumers to retrieve data directly or act as a cache for event streaming.
 
+4. **Logging**
+   - Uses Charm.sh's logger for beautiful and structured logging
+   - All logs are written to files in the system's temporary directory:
+     - Server logs: `$TMPDIR/nexus-server.log`
+     - Client logs: `$TMPDIR/nexus-client.log`
+     - Yukon logs: `$TMPDIR/yukon.log`
+
 ## Usage
 
 ### Running the Server
@@ -43,9 +50,9 @@ You can publish values and datasets using the Nexus client. For example:
 ## Roadmap
 
 ### General
-- [ ] Save server state to disk and load from disk on startup
+- [x] Save server state to disk and load from disk on startup
 - [ ] Implement user authentication and authorization
-- [ ] Improve error handling and logging
+- [x] Improve error handling and logging
 - [ ] Watch and auto-publish files updates, directories (new files, subdirs), and DBs (new tables)
 - [ ] Remote hosting
     - [ ] Local data storage (Redis)
@@ -71,15 +78,15 @@ You can publish values and datasets using the Nexus client. For example:
 ### Datasets
 - [ ] Registering Datasets
     - [x] Registering individual files
-    - [ ] Registering directories
+    - [x] Registering directories
     - [ ] Registering datasets from a remote source
-    - [ ] Registering DB tables
-        - [ ] Registering table queries
+    - [x] Registering DB tables
+    - [ ] Registering table queries
 - [ ] Accessing Datasets
     - [x] Accessing individual files
     - [ ] Accessing directories
     - [ ] Accessing datasets from a remote source
-    - [ ] Accessing DB tables
+    - [x] Accessing DB tables
 
 ### Event Streaming
 - [ ] Register streams
@@ -99,6 +106,15 @@ You can publish values and datasets using the Nexus client. For example:
 - [x] Minimal navigation and info display
 - [x] Type out path
 - [ ] Command line path argument
+- [x] Browse data
+    - [x] Browse leaf node
+        - [x] Browse values
+        - [x] Browse datasets
+            - [x] Browse individual files
+            - [x] Browse directories
+            - [x] Browse DB tables
+        - [x] Browse streams
+    - [ ] Display data of non-leaf node
 - [ ] Display data
     - [ ] Display leaf node
         - [x] Display values
