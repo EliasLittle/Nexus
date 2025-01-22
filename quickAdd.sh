@@ -20,3 +20,7 @@
 
 ./nexus-client publish directory /testing/dataset/dir_a ./tests/dir_a
 ./nexus-client publish directory /testing/dataset/dir_b ./tests/dir_b
+
+./nexus-client publish DBTable /testing/dataset/db_a postgres box-1 5432 tradingdb temperature_data
+
+./nexus-client publish event /testing/events/random_data 'random_data'
