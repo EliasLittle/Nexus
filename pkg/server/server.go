@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	"log"
+	"nexus/pkg/logger"
 	pb "nexus/pkg/proto"
 )
 
@@ -16,9 +16,36 @@ type NexusServer struct {
 	Index *Trie
 }
 
+// NewServer creates a new NexusServer instance
+func NewServer(loadPath string) (*NexusServer, error) {
+	log := logger.GetLogger()
+	var index *Trie
+	var err error
+
+	if loadPath != "" {
+		log.Info("Loading index from disk", "path", loadPath)
+		index, err = NewTrie(loadPath)
+	} else {
+		log.Info("No index path provided, creating new Trie")
+		index, err = NewTrie()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &NexusServer{Index: index}, nil
+}
+
+// SaveIndex saves the server's index to disk
+func (s *NexusServer) SaveIndex(savePath string) error {
+	return s.Index.SaveToDisk(savePath)
+}
+
 // RegisterEventStream implements the publisher endpoint for registering event streams
 func (s *NexusServer) RegisterEventStream(ctx context.Context, req *pb.RegisterEventStreamRequest) (*pb.RegisterEventStreamResponse, error) {
-	log.Printf("Received event stream registration request for path: %s, topic: %s\n", req.Path, req.EventStream.Topic)
+	log := logger.GetLogger()
+	log.Info("Received event stream registration request", "path", req.Path, "topic", req.EventStream.Topic)
 
 	// Insert the event stream into the Trie
 	s.Index.Insert(req.Path, req.EventStream) // Store the EventStream
@@ -27,34 +54,18 @@ func (s *NexusServer) RegisterEventStream(ctx context.Context, req *pb.RegisterE
 	return &pb.RegisterEventStreamResponse{Success: true}, nil
 }
 
-// RegisterDataset implements the publisher endpoint for registering datasets
-/*
-func (s *NexusServer) RegisterDataset(ctx context.Context, req *pb.RegisterDatasetRequest) (*pb.RegisterDatasetResponse, error) {
-	log.Printf("Received dataset registration request for path: %s\n", req.Path)
-
-	// Insert the dataset into the Trie
-	s.Index.Insert(req.Path, req.Dataset) // Store the Dataset
-	s.Index.Traverse()                    // Print the Trie after the update
-
-	return &pb.RegisterDatasetResponse{Success: true}, nil
-}
-*/
-
 // StoreValue implements the publisher endpoint for storing values
 func (s *NexusServer) StoreValue(ctx context.Context, req *pb.StoreValueRequest) (*pb.StoreValueResponse, error) {
-	log.Printf("Received value storage request for path: %s\n", req.Path)
-	//log.Printf("req.Value has type: %s", reflect.TypeOf(req.Value).Name())
+	log := logger.GetLogger()
+	log.Info("Received value storage request", "path", req.Path)
 
 	// Handle the oneof value types
 	switch req.Value.(type) {
 	case *pb.StoreValueRequest_StringValue:
-		//log.Printf("Value has type: %s", reflect.TypeOf(*req.GetStringValue()).Name())
 		s.Index.Insert(req.Path, req.GetStringValue())
 	case *pb.StoreValueRequest_IntValue:
-		//log.Printf("Value has type: %s", reflect.TypeOf(*req.GetIntValue()).Name())
 		s.Index.Insert(req.Path, req.GetIntValue())
 	case *pb.StoreValueRequest_FloatValue:
-		//log.Printf("Value has type: %s", reflect.TypeOf(*req.GetFloatValue()).Name())
 		s.Index.Insert(req.Path, req.GetFloatValue())
 	default:
 		return &pb.StoreValueResponse{Success: false, Error: "invalid value type"}, nil
@@ -64,8 +75,11 @@ func (s *NexusServer) StoreValue(ctx context.Context, req *pb.StoreValueRequest)
 	return &pb.StoreValueResponse{Success: true}, nil
 }
 
+// GetNode implements the consumer endpoint for getting node information
 func (s *NexusServer) GetNode(ctx context.Context, req *pb.GetPathRequest) (*pb.GetNodeResponse, error) {
-	log.Printf("Received request to get node for path: %s\n", req.Path)
+	log := logger.GetLogger()
+	log.Info("Received request to get node", "path", req.Path)
+
 	node, err := s.Index.GetNode(req.Path)
 	if err != nil {
 		return &pb.GetNodeResponse{Error: err.Error()}, nil
@@ -78,21 +92,29 @@ func (s *NexusServer) GetNode(ctx context.Context, req *pb.GetPathRequest) (*pb.
 
 	switch v := node.Value.(type) {
 	case *pb.StringValue:
+		log.Info("StringValue found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_StringValue{StringValue: v}, ValueType: node.ValueType}, nil
 	case *pb.IntValue:
+		log.Info("IntValue found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_IntValue{IntValue: v}, ValueType: node.ValueType}, nil
 	case *pb.FloatValue:
+		log.Info("FloatValue found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_FloatValue{FloatValue: v}, ValueType: node.ValueType}, nil
 	case *pb.DatabaseTable:
+		log.Info("DatabaseTable found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_DatabaseTable{DatabaseTable: v}, ValueType: node.ValueType}, nil
 	case *pb.Directory:
+		log.Info("Directory found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_Directory{Directory: v}, ValueType: node.ValueType}, nil
 	case *pb.IndividualFile:
+		log.Info("IndividualFile found at path", "path", req.Path)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_IndividualFile{IndividualFile: v}, ValueType: node.ValueType}, nil
 	case *pb.EventStream:
+		log.Info("EventStream found at path", "path", req.Path)
+		log.Info("EventStream", "node", v)
 		return &pb.GetNodeResponse{Value: &pb.GetNodeResponse_EventStream{EventStream: v}, ValueType: node.ValueType}, nil
 	default:
-		log.Printf("Unknown value type: %v\n", v)
+		log.Error("Unknown value type", "type", v)
 		return &pb.GetNodeResponse{Error: "unknown value type"}, nil
 	}
 }
@@ -172,43 +194,42 @@ func (s *NexusServer) GetPathType(ctx context.Context, req *pb.GetPathRequest) (
 
 // ListChildren implements the endpoint for listing children nodes
 func (s *NexusServer) GetChildren(ctx context.Context, req *pb.GetChildrenRequest) (*pb.GetChildrenResponse, error) {
-	log.Printf("Received request to list children for path: %s\n", req.Path)
+	log := logger.GetLogger()
+	log.Info("Received request to list children", "path", req.Path)
 
 	children := s.Index.GetChildren(req.Path)
-
 	return &pb.GetChildrenResponse{Children: children}, nil
 }
 
-// RegisterFile implements the publisher endpoint for registering files
+// RegisterFile implements the publisher endpoint for registering individual files
 func (s *NexusServer) RegisterFile(ctx context.Context, req *pb.RegisterFileRequest) (*pb.RegisterFileResponse, error) {
-	log.Printf("Received file registration request for path: %s\n", req.Path)
+	log := logger.GetLogger()
+	log.Info("Received file registration request", "path", req.Path)
 
-	// Insert the file into the Trie
-	//log.Printf("File has type: %s", reflect.TypeOf(*req.GetIndividualFile()).Name())
-	s.Index.Insert(req.Path, req.GetIndividualFile()) // Store the File
-	s.Index.Traverse()                                // Print the Trie after the update
+	s.Index.Insert(req.Path, req.IndividualFile)
+	s.Index.Traverse() // Print the Trie after the update
 
 	return &pb.RegisterFileResponse{Success: true}, nil
 }
 
 // RegisterDirectory implements the publisher endpoint for registering directories
 func (s *NexusServer) RegisterDirectory(ctx context.Context, req *pb.RegisterDirectoryRequest) (*pb.RegisterDirectoryResponse, error) {
-	log.Printf("Received directory registration request for path: %s\n", req.Path)
+	log := logger.GetLogger()
+	log.Info("Received directory registration request", "path", req.Path)
 
-	// Insert the directory into the Trie
-	s.Index.Insert(req.Path, req.GetDirectory()) // Store the Directory
-	s.Index.Traverse()                           // Print the Trie after the update
+	s.Index.Insert(req.GetPath(), req.GetDirectory())
+	s.Index.Traverse() // Print the Trie after the update
 
 	return &pb.RegisterDirectoryResponse{Success: true}, nil
 }
 
 // RegisterDatabaseTable implements the publisher endpoint for registering database tables
 func (s *NexusServer) RegisterDatabaseTable(ctx context.Context, req *pb.RegisterDatabaseTableRequest) (*pb.RegisterDatabaseTableResponse, error) {
-	log.Printf("Received database table registration request for path: %s\n", req.Path)
+	log := logger.GetLogger()
+	log.Info("Received database table registration request", "path", req.Path)
 
-	// Insert the database table into the Trie
-	s.Index.Insert(req.Path, req.GetDatabaseTable()) // Store the DatabaseTable
-	s.Index.Traverse()                               // Print the Trie after the update
+	s.Index.Insert(req.GetPath(), req.GetDatabaseTable())
+	s.Index.Traverse() // Print the Trie after the update
 
 	return &pb.RegisterDatabaseTableResponse{Success: true}, nil
 }

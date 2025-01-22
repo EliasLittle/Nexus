@@ -59,7 +59,11 @@ func main() {
 				os.Exit(1)
 			}
 		case "directory":
-			directory := nc.CreateDirectory(os.Args[4])
+			directory, err := nc.CreateDirectory(os.Args[4])
+			if err != nil {
+				fmt.Println("Failed to create directory:", err)
+				os.Exit(1)
+			}
 			err = client.PublishDirectory(path, directory)
 			if err != nil {
 				fmt.Println("Failed to publish directory:", err)
@@ -67,7 +71,7 @@ func main() {
 			}
 		case "DBTable":
 			if len(os.Args) < 8 {
-				fmt.Println(`Usage: nexus-client publish DBTable <path> <db_type> <host> <port> <table_name> <db_name>`)
+				fmt.Println(`Usage: nexus-client publish DBTable <path> <db_type> <host> <port> <db_name> <table_name>`)
 				os.Exit(1)
 			}
 			port, err := strconv.Atoi(os.Args[6])
@@ -83,6 +87,9 @@ func main() {
 			}
 		case "event":
 			eventStream := nc.CreateEventStream(os.Args[4])
+			if len(os.Args) > 5 {
+				eventStream.Server = os.Args[5]
+			}
 			err = client.PublishEventStream(path, eventStream)
 			if err != nil {
 				fmt.Println("Failed to publish event stream:", err)
@@ -103,7 +110,7 @@ func main() {
 		if len(os.Args) < 2 {
 			path = "/" // Default to root if no path is provided
 		} else {
-			path = os.Args[3]
+			path = os.Args[2]
 		}
 		data, err := client.Get(path)
 		if err != nil {
@@ -137,6 +144,14 @@ func main() {
 			fmt.Printf("Consumed dataset: %v\n", v.DirectoryPath)
 		case *pb.EventStream:
 			fmt.Printf("Consumed dataset: %v\n", v.Topic)
+			messageChan, err := nc.GetEventStream(v)
+			if err != nil {
+				fmt.Println("Failed to get event stream:", err)
+				os.Exit(1)
+			}
+			for message := range messageChan {
+				fmt.Println(string(message))
+			}
 		default:
 			//fmt.Printf("Unknown data type %s", reflect.TypeOf(v).Elem().Name())
 			os.Exit(1)

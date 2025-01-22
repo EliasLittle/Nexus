@@ -5,9 +5,13 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"nexus/pkg/logger"
 	"os"
 
 	pb "nexus/pkg/proto"
+
+	"github.com/IBM/sarama"
+	_ "github.com/lib/pq"
 )
 
 // GetValue reads a single value from the specified path
@@ -26,62 +30,55 @@ func (n *NexusClient) GetValue(path string) (*pb.Value, error) {
 }
 */
 
-/*
 // GetEventStream subscribes to a Kafka topic and processes events in real-time
-func (n *NexusClient) GetEventStream(path string) (<-chan []byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-
-	req := &pb.GetPathRequest{Path: path}
-	res, err := n.Client.GetEventStream(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get stream details: %v", err)
+func GetEventStream(es *pb.EventStream) (<-chan []byte, error) {
+	log := logger.GetLogger()
+	if es == nil {
+		log.Error("No event stream provided")
+		return nil, fmt.Errorf("no event stream provided")
 	}
 
-	if res.Error != "" {
-		return nil, fmt.Errorf("server error: %s", res.Error)
-	}
-
-	eventStream := res.EventStream
-	if eventStream == nil {
-		return nil, fmt.Errorf("no event stream found at path: %s", path)
-	}
-
+	log.Debug("Creating Kafka consumer", "server", es.Server, "topic", es.Topic)
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 
-	consumer, err := sarama.NewConsumer([]string{eventStream.Server}, config)
+	consumer, err := sarama.NewConsumer([]string{es.Server}, config)
 	if err != nil {
+		log.Error("Failed to create Kafka consumer", "error", err)
 		return nil, fmt.Errorf("failed to create Kafka consumer: %v", err)
 	}
 
-	partitionConsumer, err := consumer.ConsumePartition(eventStream.Topic, 0, sarama.OffsetNewest)
+	partitionConsumer, err := consumer.ConsumePartition(es.Topic, 0, sarama.OffsetNewest)
 	if err != nil {
 		consumer.Close()
+		log.Error("Failed to create partition consumer", "error", err)
 		return nil, fmt.Errorf("failed to create partition consumer: %v", err)
 	}
 
-	messageChan := make(chan []byte)
+	// Create a channel to receive messages
+	messages := make(chan []byte)
 
+	// Start a goroutine to handle messages
 	go func() {
-		defer close(messageChan)
-		defer partitionConsumer.Close()
-		defer consumer.Close()
+		defer func() {
+			partitionConsumer.Close()
+			consumer.Close()
+			close(messages)
+		}()
 
 		for {
 			select {
 			case msg := <-partitionConsumer.Messages():
-				messageChan <- msg.Value
+				messages <- msg.Value
 			case err := <-partitionConsumer.Errors():
-				log.Printf("Error consuming message: %v", err)
-				return
+				log.Error("Error consuming message", "error", err)
 			}
 		}
 	}()
 
-	return messageChan, nil
+	log.Debug("Event stream consumer started", "server", es.Server, "topic", es.Topic)
+	return messages, nil
 }
-*/
 
 // GetDataset reads data from either a file or database table
 /*
@@ -115,40 +112,50 @@ func (n *NexusClient) GetDataset(path string) ([][]string, error) {
 }
 */
 
-// readFile reads data from a CSV file
+// ReadFile reads data from a file and returns it as a slice of string slices
 func ReadFile(filePath string) ([][]string, error) {
+	log := logger.GetLogger()
+	log.Debug("Reading file", "path", filePath)
+
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open file: %v", err)
+		log.Error("Failed to open file", "error", err)
+		return nil, err
 	}
 	defer file.Close()
 
 	reader := csv.NewReader(file)
 	var records [][]string
+
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("error reading CSV: %v", err)
+			log.Error("Failed to read record", "error", err)
+			return nil, err
 		}
 		records = append(records, record)
 	}
 
+	log.Debug("File read successfully", "path", filePath, "records", len(records))
 	return records, nil
 }
 
 // generateConnectionString creates a PostgreSQL connection string from the DatabaseTable
 func generateConnectionString(table *pb.DatabaseTable, username, password string) string {
-	return fmt.Sprintf("user=%s password=%s host=%s port=%d dbname=%s sslmode=disable",
-		username, password, table.Host, table.Port, table.DbName)
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
+		table.Host, table.Port, username, password, table.DbName)
 }
 
-// queryTable reads all data from a database table
+// QueryTable executes a query on a database table and returns the results
 func QueryTable(table *pb.DatabaseTable) ([][]string, error) {
+	log := logger.GetLogger()
+	log.Debug("Querying table", "type", table.DbType, "host", table.Host, "db", table.DbName, "table", table.TableName)
 	// Get the username from the environment variable
 	username := os.Getenv("USER") // For Unix-like systems
+	fmt.Println("using username: ", username)
 	//	if username == "" {
 	//		username = os.Getenv("USERNAME") // For Windows systems
 	//	}
@@ -157,68 +164,65 @@ func QueryTable(table *pb.DatabaseTable) ([][]string, error) {
 	}
 
 	password := os.Getenv("DB_PASSWORD") // Get the password from the environment variable
+	fmt.Println("using password: ", password)
 	if password == "" {
 		return nil, fmt.Errorf("DB_PASSWORD environment variable is not set")
 	}
 
-	connectionString := generateConnectionString(table, username, password)
-	db, err := sql.Open(table.DbType, connectionString)
+	connStr := generateConnectionString(table, username, password)
+	db, err := sql.Open(table.DbType, connStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %v", err)
+		log.Error("Failed to open database connection", "error", err)
+		return nil, err
 	}
 	defer db.Close()
 
-	query := fmt.Sprintf("SELECT * FROM %s", table.TableName)
+	query := fmt.Sprintf("SELECT * FROM %s limit 100", table.TableName)
 	rows, err := db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query table: %v", err)
+		log.Error("Failed to execute query", "error", err)
+		return nil, err
 	}
 	defer rows.Close()
 
+	// Get column names
 	columns, err := rows.Columns()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %v", err)
+		log.Error("Failed to get column names", "error", err)
+		return nil, err
 	}
 
+	// Prepare result slice with column names as first row
 	result := [][]string{columns}
 
-	for rows.Next() {
-		values := make([]interface{}, len(columns))
-		valuePointers := make([]interface{}, len(columns))
-		for i := range values {
-			valuePointers[i] = &values[i]
-		}
-
-		if err := rows.Scan(valuePointers...); err != nil {
-			return nil, fmt.Errorf("failed to scan row: %v", err)
-		}
-
-		stringValues := make([]string, len(columns))
-		for i, v := range values {
-			stringValues[i] = fmt.Sprintf("%v", v)
-		}
-		result = append(result, stringValues)
+	// Prepare value holders
+	values := make([]interface{}, len(columns))
+	valuePtrs := make([]interface{}, len(columns))
+	for i := range columns {
+		valuePtrs[i] = &values[i]
 	}
 
+	// Iterate through rows
+	for rows.Next() {
+		err := rows.Scan(valuePtrs...)
+		if err != nil {
+			log.Error("Failed to scan row", "error", err)
+			return nil, err
+		}
+
+		// Convert values to strings
+		var record []string
+		for _, val := range values {
+			record = append(record, fmt.Sprintf("%v", val))
+		}
+		result = append(result, record)
+	}
+
+	if err = rows.Err(); err != nil {
+		log.Error("Error iterating rows", "error", err)
+		return nil, err
+	}
+
+	log.Debug("Query completed successfully", "rows", len(result)-1)
 	return result, nil
 }
-
-// GetData retrieves data from the specified path, returning either a Value or a Dataset
-/*
-func (n *NexusClient) GetData(path string) (interface{}, error) {
-	// First, try to get a Value
-	value, err := n.GetValue(path)
-	if err == nil {
-		return value, nil
-	}
-
-	// If getting a Value fails, try to get a Dataset
-	dataset, err := n.GetDataset(path)
-	if err == nil {
-		return dataset, nil
-	}
-
-	// If both attempts fail, return the last error
-	return nil, fmt.Errorf("failed to get data from path: %s, errors: value error: %v, dataset error: %v", path, err, err)
-}
-*/

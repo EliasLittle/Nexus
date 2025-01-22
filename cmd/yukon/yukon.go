@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"nexus/pkg/logger"
 	"os"
 	"strings"
+	"time"
 
 	nc "nexus/pkg/client"
 	pb "nexus/pkg/proto"
@@ -23,6 +25,7 @@ type model struct {
 	client      *nc.NexusClient
 	path        string
 	children    []string
+	dataStream  chan string
 	err         error
 	lastKeyMsg  string
 	isLeafNode  bool
@@ -30,7 +33,11 @@ type model struct {
 	isSearching bool
 }
 
+type tickMsg struct{} // Custom message type for periodic updates
+
 func initialModel() model {
+	log := logger.GetLogger()
+
 	columns := []table.Column{
 		{Title: "Path", Width: 40},
 		{Title: "Type", Width: 20},
@@ -55,6 +62,10 @@ func initialModel() model {
 	t.SetStyles(s)
 
 	conn, err := nc.CreateGRPCConnection(nc.DefaultConnection)
+	if err != nil {
+		log.Error("Failed to create gRPC connection", "error", err)
+		os.Exit(1)
+	}
 
 	searchInput := textinput.New()
 	searchInput.Placeholder = "Search..."
@@ -72,6 +83,7 @@ func initialModel() model {
 		isLeafNode:  false,
 		searchInput: searchInput,
 		isSearching: false,
+		dataStream:  make(chan string),
 	}
 }
 
@@ -80,9 +92,10 @@ func (m model) Init() (tea.Model, tea.Cmd) {
 }
 
 func (m model) fetchChildren() tea.Msg {
+	log := logger.GetLogger()
 	children, err := m.client.GetChildren(m.path)
 	if err != nil {
-		fmt.Printf("Error fetching children: %v\n", err)
+		log.Error("Failed to fetch children", "error", err)
 		return errMsg{err}
 	}
 
@@ -100,40 +113,74 @@ func (m model) fetchChildren() tea.Msg {
 }
 
 func (m model) fetchData() tea.Msg {
+	log := logger.GetLogger()
+	log.Info("Fetching data", "path", m.path)
 	data, err := m.client.Get(m.path)
 	if err != nil {
-		// Log the error for debugging
-		fmt.Printf("Error fetching data from path '%s': %v\n", m.path, err)
+		log.Error("Failed to fetch data", "path", m.path, "error", err)
 		return errMsg{err}
 	}
 
 	if data == nil {
-		// Handle case where data is nil
-		fmt.Printf("No data found at path '%s'\n", m.path)
+		log.Error("No data found", "path", m.path)
 		return errMsg{fmt.Errorf("no data found at path '%s'", m.path)}
 	}
 
-	var valueStr string
+	var rows []table.Row
+
 	switch v := data.(type) {
 	case *pb.IntValue:
-		valueStr = fmt.Sprintf("%d", v.Value)
+		valueStr := fmt.Sprintf("%d", v.Value)
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.FloatValue:
-		valueStr = fmt.Sprintf("%f", v.Value)
+		valueStr := fmt.Sprintf("%f", v.Value)
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.StringValue:
-		valueStr = v.Value
+		valueStr := v.Value
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.DatabaseTable:
-		valueStr = fmt.Sprintf("DatabaseTable: %s", v.TableName)
+		valueStr := fmt.Sprintf("DatabaseTable: %s", v.TableName)
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.Directory:
-		valueStr = fmt.Sprintf("Directory: %s", v.DirectoryPath)
+		valueStr := fmt.Sprintf("Directory: %s", v.DirectoryPath)
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.IndividualFile:
-		valueStr = fmt.Sprintf("File (%s): %s", v.FileType, v.FilePath)
+		valueStr := fmt.Sprintf("File (%s): %s", v.FileType, v.FilePath)
+		rows = append(rows, table.Row{m.path, valueStr})
 	case *pb.EventStream:
-		valueStr = fmt.Sprintf("EventStream: %s@%s", v.Topic, v.Server)
+		streamRow := table.Row{"Streaming Data", "Waiting for messages..."}
+
+		// Check if the row already exists
+		if len(rows) == 0 || rows[0][0] != "Streaming Data" {
+			rows = append(rows, streamRow) // Add the streaming row to the rows slice
+		}
+
+		log.Info("Event Stream: ", "server", v.Server, "topic", v.Topic)
+
+		// Start a goroutine to handle the event stream
+		messageChan, err := nc.GetEventStream(v)
+		if err != nil {
+			log.Error("Failed to get event stream", "error", err)
+			os.Exit(1)
+		}
+
+		// Update the row with streaming data
+		go func(messageChan <-chan []byte) {
+			log := logger.GetLogger()
+			log.Debug("Event stream goroutine started")
+			for message := range messageChan {
+				log.Debug("Received message", "message", string(message))
+				rows[0][1] = string(message)
+				m.dataStream <- "update"
+			}
+			log.Debug("Event stream closed")
+		}(messageChan)
 	default:
-		valueStr = fmt.Sprintf("value: %v, has unknown type: %T", v, v)
+		valueStr := fmt.Sprintf("value: %v, has unknown type: %T", v, v)
+		rows = append(rows, table.Row{m.path, valueStr})
 	}
 
-	return childrenMsg{rows: []table.Row{{"value", valueStr}}}
+	return childrenMsg{rows}
 }
 
 type childrenMsg struct {
@@ -145,10 +192,11 @@ type errMsg struct {
 }
 
 func (m *model) filterChildren() tea.Msg {
+	log := logger.GetLogger()
 	// Fetch all children first
 	children, err := m.client.GetChildren(m.path)
 	if err != nil {
-		fmt.Printf("Error fetching children: %v\n", err)
+		log.Error("Failed to fetch children", "error", err)
 		return errMsg{err}
 	}
 
@@ -166,10 +214,12 @@ func (m *model) filterChildren() tea.Msg {
 		}
 	}
 
+	log.Debug("Filtered children", "count", len(filteredRows))
 	return childrenMsg{rows: filteredRows}
 }
 
 func (m model) moveUp() (tea.Model, tea.Cmd) {
+	log := logger.GetLogger()
 	if m.path != "/" {
 		// Go up one level
 		switch lastSlash := strings.LastIndex(m.path[:len(m.path)-1], "/"); lastSlash {
@@ -183,12 +233,14 @@ func (m model) moveUp() (tea.Model, tea.Cmd) {
 
 		m.isLeafNode = false
 		m.searchInput.SetValue(m.path)
+		log.Debug("Moving up", "new_path", m.path)
 		return m, m.fetchChildren
 	}
 	return m, nil
 }
 
 func (m model) moveDown(newPath string) (tea.Model, tea.Cmd) {
+	log := logger.GetLogger()
 	// Check if the selected path has children
 	if children, err := m.client.GetChildren(newPath); err == nil {
 		if len(children) == 0 {
@@ -196,6 +248,7 @@ func (m model) moveDown(newPath string) (tea.Model, tea.Cmd) {
 				m.isLeafNode = true
 				m.path = newPath
 				m.searchInput.SetValue(newPath)
+				log.Debug("Moving to leaf node", "path", newPath)
 				return m, m.fetchData
 			}
 			// If the path is a leaf node, do nothing
@@ -204,13 +257,27 @@ func (m model) moveDown(newPath string) (tea.Model, tea.Cmd) {
 		m.isLeafNode = false
 		m.path = newPath
 		m.searchInput.SetValue(newPath)
+		log.Debug("Moving down", "new_path", newPath)
 		return m, m.fetchChildren
 	}
 	return m, nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	log := logger.GetLogger()
+	log.Info("Updating model", "msg", msg)
 	var cmd tea.Cmd
+
+	// Handle incoming data stream messages
+	if dataMsg, ok := msg.(string); ok && dataMsg == "update" {
+		log.Debug("Data stream update received")
+		return m, nil
+	}
+
+	// Handle custom tick messages for periodic updates
+	if _, ok := msg.(tickMsg); ok {
+		m.table.SetRows(m.table.Rows())
+	}
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -308,9 +375,21 @@ func (m model) View() string {
 }
 
 func main() {
+	log := logger.GetLogger()
+
+	log.Info("Starting Yukon")
 	p := tea.NewProgram(initialModel(), tea.WithKeyboardEnhancements())
+
+	// Start a ticker to periodically send update messages
+	ticker := time.NewTicker(500 * time.Millisecond)
+	go func() {
+		for range ticker.C {
+			p.Send(tickMsg{})
+		}
+	}()
+
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Error running program: %v", err)
+		log.Error("Error running program", "error", err)
 		os.Exit(1)
 	}
 }

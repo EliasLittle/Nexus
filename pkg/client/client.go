@@ -3,9 +3,9 @@ package client
 import (
 	"context"
 	"fmt"
+	"nexus/pkg/logger"
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	pb "nexus/pkg/proto"
@@ -27,14 +27,19 @@ func NewNexusClient(conn *grpc.ClientConn) *NexusClient {
 }
 
 func CreateGRPCConnection(connStr string) (*grpc.ClientConn, error) {
+	log := logger.GetLogger()
+	log.Debug("Creating gRPC connection", "address", connStr)
 	conn, err := grpc.NewClient(connStr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
+		log.Error("Failed to create gRPC connection", "error", err)
 		return nil, err
 	}
 	return conn, nil
 }
 
 func CreateEventStream(topic string) *pb.EventStream {
+	log := logger.GetLogger()
+	log.Debug("Creating event stream", "topic", topic)
 	return &pb.EventStream{
 		Server: "localhost:9092",
 		Topic:  topic,
@@ -42,7 +47,9 @@ func CreateEventStream(topic string) *pb.EventStream {
 }
 
 func CreateIndividualFile(filePath string) *pb.IndividualFile {
+	log := logger.GetLogger()
 	fileType := path.Ext(filePath) // Get the file extension
+	log.Debug("Creating individual file", "path", filePath, "type", fileType)
 	return &pb.IndividualFile{
 		FileType:    fileType,
 		FilePath:    filePath,
@@ -50,42 +57,44 @@ func CreateIndividualFile(filePath string) *pb.IndividualFile {
 	}
 }
 
-func CreateDirectory(directoryPath string) *pb.Directory {
-	files, err := os.ReadDir(directoryPath) // Read the directory contents
+func CreateDirectory(directoryPath string) (*pb.Directory, error) {
+	log := logger.GetLogger()
+	log.Debug("Creating directory", "path", directoryPath)
+
+	// Get the file type from the first file in the directory
+	files, err := os.ReadDir(directoryPath)
 	if err != nil {
-		fmt.Println("Error reading directory:", err)
-		return nil
+		log.Error("Failed to read directory", "error", err)
+		return nil, err
 	}
 
 	var fileType string
 	fileCount := 0
-	extensionSet := make(map[string]struct{}) // To track unique file extensions
-
 	for _, file := range files {
-		if !file.IsDir() { // Only consider files, not directories
+		if !file.IsDir() {
 			fileCount++
-			ext := filepath.Ext(file.Name()) // Get the file extension
-			extensionSet[ext] = struct{}{}   // Add the extension to the set
 			if fileType == "" {
-				fileType = ext // Set fileType to the first file's extension
+				fileType = path.Ext(file.Name())
 			}
 		}
 	}
 
-	// Check if all files have the same extension
-	if len(extensionSet) > 1 {
-		fmt.Println("Not all files have the same extension.")
-		return nil
+	if fileType == "" {
+		log.Error("No files found in directory")
+		return nil, fmt.Errorf("no files found in directory")
 	}
 
+	log.Debug("Directory created", "type", fileType, "count", fileCount)
 	return &pb.Directory{
 		FileType:      fileType,
 		DirectoryPath: directoryPath,
 		FileCount:     int32(fileCount),
-	}
+	}, nil
 }
 
 func CreateDatabaseTable(dbType string, host string, port int32, dbName string, tableName string) *pb.DatabaseTable {
+	log := logger.GetLogger()
+	log.Debug("Creating database table", "type", dbType, "host", host, "port", port, "db", dbName, "table", tableName)
 	return &pb.DatabaseTable{
 		DbType:    dbType,
 		Host:      host,
@@ -96,66 +105,89 @@ func CreateDatabaseTable(dbType string, host string, port int32, dbName string, 
 }
 
 func (n *NexusClient) GetChildren(path string) ([]string, error) {
+	log := logger.GetLogger()
+	log.Debug("Getting children", "path", path)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req := &pb.GetChildrenRequest{Path: path}
-	resp, err := n.Client.GetChildren(ctx, req)
+	res, err := n.Client.GetChildren(ctx, req)
 	if err != nil {
-		fmt.Println("Error listing children:", err)
+		log.Error("Failed to get children", "error", err)
 		return nil, err
 	}
 
-	return resp.Children, nil
+	log.Debug("Got children", "path", path, "children", res.Children)
+	return res.Children, nil
 }
 
 // TODO: Add rpc to get path type to reduce unneeded data transfer
 func (n *NexusClient) GetPathType(path string) (string, error) {
-	_, valueType, err := n.GetFull(path)
+	log := logger.GetLogger()
+	log.Debug("Getting path type", "path", path)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &pb.GetPathRequest{Path: path}
+	res, err := n.Client.GetNode(ctx, req)
 	if err != nil {
+		log.Error("Failed to get path type", "error", err)
 		return "", err
 	}
 
-	return valueType, nil
+	log.Debug("Got path type", "path", path, "type", res.ValueType)
+	return res.ValueType, nil
 }
 
 // TODO: Add rpc to get path data to reduce unneeded data transfer
 func (n *NexusClient) Get(path string) (interface{}, error) {
+	log := logger.GetLogger()
+	log.Debug("Getting value", "path", path)
+
 	value, _, err := n.GetFull(path)
 	if err != nil {
+		log.Error("Failed to get value", "error", err)
 		return nil, err
 	}
 
-	//fmt.Printf("client.go Get| Value %v has type: %T", value, value)
+	log.Debug("Got value", "path", path, "value", value)
 	return value, nil
 }
 
 func (n *NexusClient) GetFull(path string) (interface{}, string, error) {
+	log := logger.GetLogger()
+	log.Debug("Getting full value", "path", path)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	req := &pb.GetPathRequest{Path: path}
 	node, err := n.Client.GetNode(ctx, req)
 	if err != nil {
+		log.Error("Failed to get full value", "error", err)
 		return nil, "", err
 	}
 
-	switch node.ValueType {
+	switch valType := node.GetValueType(); valType {
 	case "StringValue":
-		return node.GetStringValue(), node.ValueType, nil
+		return node.GetStringValue(), valType, nil
 	case "IntValue":
-		return node.GetIntValue(), node.ValueType, nil
+		return node.GetIntValue(), valType, nil
 	case "FloatValue":
-		return node.GetFloatValue(), node.ValueType, nil
+		return node.GetFloatValue(), valType, nil
 	case "DatabaseTable":
-		return node.GetDatabaseTable(), node.ValueType, nil
+		return node.GetDatabaseTable(), valType, nil
 	case "Directory":
-		return node.GetDirectory(), node.ValueType, nil
+		return node.GetDirectory(), valType, nil
 	case "IndividualFile":
-		return node.GetIndividualFile(), node.ValueType, nil
+		return node.GetIndividualFile(), valType, nil
 	case "EventStream":
-		return node.GetEventStream(), node.ValueType, nil
+		log.Info("EventStream found", "node", node)
+		return node.GetEventStream(), valType, nil
 	default:
-		return nil, "", fmt.Errorf("unsupported value type: %v at path: %s", node.ValueType, path)
+		log.Error("Unknown value type", "type", valType)
+		return nil, "", fmt.Errorf("unknown value type: %s", valType)
 	}
 }
