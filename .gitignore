@@ -18,3 +18,7 @@ yukon
 
 # Ignore .vscode directory
 .vscode/
+
+# Ignore logs
+logs/
+*.log
