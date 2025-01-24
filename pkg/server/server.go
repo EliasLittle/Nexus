@@ -85,8 +85,8 @@ func (s *NexusServer) GetNode(ctx context.Context, req *pb.GetPathRequest) (*pb.
 		return &pb.GetNodeResponse{Error: err.Error()}, nil
 	}
 
-	if node.ValueType == "InteriorNode" {
-		log.Printf("InteriorNode at path: %s\n", req.Path)
+	if node.ValueType == "InternalNode" {
+		log.Printf("InternalNode at path: %s\n", req.Path)
 		return &pb.GetNodeResponse{Value: nil, ValueType: node.ValueType}, nil
 	}
 

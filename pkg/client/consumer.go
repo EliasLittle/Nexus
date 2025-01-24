@@ -61,6 +61,7 @@ func GetEventStream(es *pb.EventStream) (<-chan []byte, error) {
 	// Start a goroutine to handle messages
 	go func() {
 		defer func() {
+			log.Debug("Closing consumer")
 			partitionConsumer.Close()
 			consumer.Close()
 			close(messages)
@@ -69,6 +70,7 @@ func GetEventStream(es *pb.EventStream) (<-chan []byte, error) {
 		for {
 			select {
 			case msg := <-partitionConsumer.Messages():
+				log.Debug("Message received", "message", msg.Value)
 				messages <- msg.Value
 			case err := <-partitionConsumer.Errors():
 				log.Error("Error consuming message", "error", err)

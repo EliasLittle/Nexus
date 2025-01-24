@@ -138,13 +138,17 @@ func (t *Trie) GetChildren(path string) []string {
 
 // GetNode returns the TrieNode at a given path
 func (t *Trie) GetNode(path string) (*TrieNode, error) {
+	log := logger.GetLogger()
+	log.Debug("Getting node", "path", path)
 	node := t.Root
 	if path != "/" {
 		segments := splitPath(path)
 		for _, segment := range segments {
 			if child, exists := node.Children[segment]; exists {
+				log.Debug("Found child", "child", child)
 				node = child
 			} else {
+				log.Debug("Path not found", "path", path)
 				return nil, fmt.Errorf("path not found: %s", path)
 			}
 		}
