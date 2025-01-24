@@ -380,6 +380,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = moveUpCmd(m.path)
 				cmds = append(cmds, cmd)
 			case "/":
+				m.searchInput.SetCursor(len(m.searchInput.Value()))
 				m.isSearching = true
 				m.searchInput.Focus()
 			default:
