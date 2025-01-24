@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"nexus/pkg/logger"
 	"os"
+	"sort"
 	"strings"
 
 	nc "nexus/pkg/client"
@@ -138,6 +139,9 @@ func fetchChildrenCmd(client *nc.NexusClient, path string) tea.Cmd {
 			rows = append(rows, table.Row{child, dataType})
 		}
 
+		sort.Slice(rows, func(i, j int) bool {
+			return rows[i][0] < rows[j][0]
+		})
 		return rowDataMsg{rows, "fetchChildren"}
 	}
 }
@@ -243,6 +247,9 @@ func filterChildrenCmd(client *nc.NexusClient, path string, searchInput textinpu
 		}
 
 		log.Debug("Filtered children", "count", len(filteredRows))
+		sort.Slice(filteredRows, func(i, j int) bool {
+			return filteredRows[i][0] < filteredRows[j][0]
+		})
 		return rowDataMsg{rows: filteredRows, message: "filterChildren"}
 	}
 }
@@ -304,8 +311,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds []tea.Cmd
 	)
 
-	m.table, cmd = m.table.Update(msg)
-	cmds = append(cmds, cmd)
+	//m.table, cmd = m.table.Update(msg)
+	//cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
 	case moveDownResponse:
@@ -361,10 +368,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
 				cmds = append(cmds, cmd)
 			case "/":
-				m.searchInput, cmd = m.searchInput.Update(msg)
-				cmds = append(cmds, cmd)
-				cmd = moveDownCmd(m.client, m.searchInput.Value(), m.isLeafNode)
-				cmds = append(cmds, cmd)
+				char := m.searchInput.Value()[len(m.searchInput.Value())-1]
+				if char != '/' {
+					m.searchInput, cmd = m.searchInput.Update(msg)
+					cmds = append(cmds, cmd)
+					cmd = moveDownCmd(m.client, m.searchInput.Value(), m.isLeafNode)
+					cmds = append(cmds, cmd)
+				}
 			default:
 				m.searchInput, cmd = m.searchInput.Update(msg)
 				cmds = append(cmds, cmd)
