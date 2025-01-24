@@ -5,7 +5,6 @@ import (
 	"nexus/pkg/logger"
 	"os"
 	"strings"
-	"time"
 
 	nc "nexus/pkg/client"
 	pb "nexus/pkg/proto"
@@ -47,10 +46,6 @@ type streamDataMsg struct {
 type errMsg struct {
 	err error
 }
-
-type tickMsg struct {
-	message string
-} // Custom message type for periodic updates
 
 type moveDownResponse struct {
 	newPath    string
@@ -306,9 +301,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
-	case tickMsg:
-		log.Debug("Tick", "message", msg)
-		m.table.SetRows(m.table.Rows())
 	case moveDownResponse:
 		m.isLeafNode = msg.isLeafNode
 		m.path = msg.newPath
@@ -442,14 +434,6 @@ func main() {
 
 	log.Info("Starting Yukon")
 	p := tea.NewProgram(initialModel(), tea.WithKeyboardEnhancements())
-
-	// Start a ticker to periodically send update messages
-	ticker := time.NewTicker(5 * time.Second)
-	go func() {
-		for range ticker.C {
-			p.Send(tickMsg{message: "periodic update"})
-		}
-	}()
 
 	if _, err := p.Run(); err != nil {
 		log.Error("Error running program", "error", err)
