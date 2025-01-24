@@ -106,7 +106,7 @@ You can publish values and datasets using the Nexus client. For example:
 ### Yukon
 - [x] Minimal navigation and info display
 - [x] Type out path
-- [ ] Command line path argument
+- [x] Command line path argument
 - [x] Browse data
     - [x] Browse leaf node
         - [x] Browse values
