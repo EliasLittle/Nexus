@@ -89,17 +89,18 @@ You can publish values and datasets using the Nexus client. For example:
     - [x] Accessing DB tables
 
 ### Event Streaming
-- [ ] Register streams
-    - [ ] Register kafka streams
-    - [ ] Websocket streams
-    - [ ] Register file streams
-    - [ ] Register DB streams
-    - [ ] Register direct tcp streams
-- [ ] Access streams
-    - [ ] Access kafka streams
-    - [ ] Access file streams
-    - [ ] Access DB streams
-    - [ ] Access direct tcp streams
+- [ ] Register __ streams
+    - [x] kafka
+    - [ ] Websocket
+    - [ ] file
+    - [ ] DB
+    - [ ] direct tcp
+- [ ] Access __ streams
+    - [x] kafka
+    - [ ] Websocket
+    - [ ] file
+    - [ ] DB
+    - [ ] direct tcp
 - [ ] Add support for stream filtering
 
 ### Yukon
@@ -119,7 +120,7 @@ You can publish values and datasets using the Nexus client. For example:
     - [ ] Display leaf node
         - [x] Display values
         - [ ] Display datasets
-        - [ ] Display streams
+        - [x] Display streams
     - [ ] Display data of non-leaf node
 - [ ] Add method to __ data
     - [ ] add
