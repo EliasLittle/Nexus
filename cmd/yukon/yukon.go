@@ -131,12 +131,7 @@ func fetchChildrenCmd(client *nc.NexusClient, path string) tea.Cmd {
 
 		rows := []table.Row{}
 		for _, child := range children {
-			dataType := "Branch" // default assumption
-			// Try to get data type if exists
-			if pathType, err := client.GetPathType(child); err == nil {
-				dataType = pathType
-			}
-			rows = append(rows, table.Row{child, dataType})
+			rows = append(rows, table.Row{child.Name, child.Type})
 		}
 
 		sort.Slice(rows, func(i, j int) bool {
@@ -237,12 +232,8 @@ func filterChildrenCmd(client *nc.NexusClient, path string, searchInput textinpu
 		// Filter rows based on search input
 		filteredRows := []table.Row{}
 		for _, child := range children {
-			if strings.Contains(strings.ToLower(child), strings.ToLower(lastSegment)) {
-				dataType := "Branch" // default assumption
-				if pathType, err := client.GetPathType(child); err == nil {
-					dataType = pathType
-				}
-				filteredRows = append(filteredRows, table.Row{child, dataType})
+			if strings.Contains(strings.ToLower(child.Name), strings.ToLower(lastSegment)) {
+				filteredRows = append(filteredRows, table.Row{child.Name, child.Type})
 			}
 		}
 

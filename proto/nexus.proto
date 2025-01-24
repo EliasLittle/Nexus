@@ -179,7 +179,13 @@ message GetChildrenRequest {
 
 // Response message for listing children
 message GetChildrenResponse {
-  repeated string children = 1; // List of child paths
+  repeated ChildInfo children = 1; // List of child paths and their types
+}
+
+// New message to hold child information
+message ChildInfo {
+  string name = 1; // Name of the child
+  string type = 2; // Type of the child
 }
 
 message GetPathTypeResponse {

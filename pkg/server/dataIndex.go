@@ -113,7 +113,7 @@ func (t *Trie) GetType(path string) (string, error) {
 }
 
 // GetChildren returns a list of child paths for a given path
-func (t *Trie) GetChildren(path string) []string {
+func (t *Trie) GetChildren(path string) []*pb.ChildInfo {
 	log := logger.GetLogger()
 	node := t.Root
 	if path != "/" {
@@ -123,14 +123,14 @@ func (t *Trie) GetChildren(path string) []string {
 				node = child
 			} else {
 				log.Debug("No children found for path", "path", path)
-				return []string{}
+				return []*pb.ChildInfo{}
 			}
 		}
 	}
 
-	children := make([]string, 0, len(node.Children))
-	for segment := range node.Children {
-		children = append(children, segment)
+	children := make([]*pb.ChildInfo, 0, len(node.Children))
+	for segment, child := range node.Children {
+		children = append(children, &pb.ChildInfo{Name: segment, Type: child.ValueType})
 	}
 	log.Debug("Children of path", "path", path, "children", children)
 	return children

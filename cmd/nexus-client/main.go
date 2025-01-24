@@ -170,7 +170,7 @@ func main() {
 		}
 		fmt.Printf("Children of path '%s':\n", path)
 		for _, child := range children {
-			fmt.Println(path + "/" + child)
+			fmt.Println(path + "/" + child.Name + "<" + child.Type + ">")
 		}
 	default:
 		fmt.Println("Unknown command. Use 'publish' or 'consume'.")

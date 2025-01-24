@@ -104,7 +104,7 @@ func CreateDatabaseTable(dbType string, host string, port int32, dbName string, 
 	}
 }
 
-func (n *NexusClient) GetChildren(path string) ([]string, error) {
+func (n *NexusClient) GetChildren(path string) ([]*pb.ChildInfo, error) {
 	log := logger.GetLogger()
 	log.Debug("Getting children", "path", path)
 
