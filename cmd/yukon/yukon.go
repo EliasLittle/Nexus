@@ -9,6 +9,8 @@ import (
 	nc "nexus/pkg/client"
 	pb "nexus/pkg/proto"
 
+	"flag"
+
 	"github.com/charmbracelet/bubbles/v2/table"
 	"github.com/charmbracelet/bubbles/v2/textinput"
 	tea "github.com/charmbracelet/bubbletea/v2"
@@ -23,6 +25,7 @@ type model struct {
 	table         table.Model
 	client        *nc.NexusClient
 	path          string
+	initPath      string
 	children      []string
 	err           error
 	lastKeyMsg    string
@@ -56,7 +59,7 @@ type moveUpResponse struct {
 	newPath string
 }
 
-func initialModel() model {
+func initialModel(initialPath string) model {
 	log := logger.GetLogger()
 
 	columns := []table.Column{
@@ -98,6 +101,7 @@ func initialModel() model {
 		table:         t,
 		client:        nc.NewNexusClient(conn),
 		path:          "/",
+		initPath:      initialPath,
 		children:      []string{},
 		err:           err,
 		lastKeyMsg:    "",
@@ -109,6 +113,9 @@ func initialModel() model {
 }
 
 func (m model) Init() (tea.Model, tea.Cmd) {
+	if m.initPath != "/" {
+		return m, moveDownCmd(m.client, m.initPath, m.isLeafNode)
+	}
 	return m, fetchChildrenCmd(m.client, m.path)
 }
 
@@ -433,8 +440,13 @@ func (m model) View() string {
 func main() {
 	log := logger.GetLogger()
 
+	// Add a flag for the initial path
+	var initialPath string
+	flag.StringVar(&initialPath, "path", "/", "Initial path to start from")
+	flag.Parse()
+
 	log.Info("Starting Yukon")
-	p := tea.NewProgram(initialModel(), tea.WithKeyboardEnhancements())
+	p := tea.NewProgram(initialModel(initialPath), tea.WithKeyboardEnhancements())
 
 	if _, err := p.Run(); err != nil {
 		log.Error("Error running program", "error", err)
