@@ -470,12 +470,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				//cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
 				//cmds = append(cmds, cmd)
 			case "/":
-				char := m.searchInput.Value()[len(m.searchInput.Value())-1]
-				if char != '/' {
-					m.searchInput, cmd = m.searchInput.Update(msg)
-					cmds = append(cmds, cmd)
-					cmd = moveDownCmd(m.client, m.searchInput.Value(), m.isLeafNode)
-					cmds = append(cmds, cmd)
+				if m.searchInput.Value() != "" { // Check if searchInput is empty
+					char := m.searchInput.Value()[len(m.searchInput.Value())-1]
+					if char != '/' {
+						m.searchInput, cmd = m.searchInput.Update(msg)
+						cmds = append(cmds, cmd)
+						cmd = moveDownCmd(m.client, m.searchInput.Value(), m.isLeafNode)
+						cmds = append(cmds, cmd)
+					}
 				}
 			default:
 				m.searchInput, cmd = m.searchInput.Update(msg)
