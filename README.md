@@ -13,13 +13,6 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
 3. **Value Store/Publishing (Redis)**
    - Small values can be sent directly to the Nexus server, allowing consumers to retrieve data directly or act as a cache for event streaming.
 
-4. **Logging**
-   - Uses Charm.sh's logger for beautiful and structured logging
-   - All logs are written to files in the system's temporary directory:
-     - Server logs: `$TMPDIR/nexus-server.log`
-     - Client logs: `$TMPDIR/nexus-client.log`
-     - Yukon logs: `$TMPDIR/yukon.log`
-
 ## Usage
 
 ### Running the Server
@@ -46,6 +39,17 @@ You can publish values and datasets using the Nexus client. For example:
 ./nexus-client publish value /testing/a 123
 ./nexus-client publish dataset /testing/dataset/a ./tests/example_a.csv
 ```
+
+## Example Use Cases
+
+- Single location for all data sharing. Can organize by app, team, user, etc.
+- Inspect app internal state
+    - Build system progress
+    - Git branches
+- Share data between apps (pub-sub)
+- Save queries
+- Data versioning
+
 
 ## Roadmap
 
