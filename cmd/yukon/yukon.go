@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"nexus/pkg/logger"
 	"os"
-	"sort"
 	"strings"
 
 	nc "nexus/pkg/client"
@@ -27,7 +26,8 @@ type model struct {
 	client        *nc.NexusClient
 	path          string
 	initPath      string
-	children      []string
+	children      []*pb.ChildInfo
+	rows          []table.Row
 	err           error
 	lastKeyMsg    string
 	isLeafNode    bool
@@ -43,7 +43,8 @@ type rowDataMsg struct {
 
 type streamDataMsg struct {
 	channel <-chan []byte
-	rows    []table.Row
+	row     table.Row
+	rowNum  int
 	message string
 }
 
@@ -53,6 +54,7 @@ type errMsg struct {
 
 type moveDownResponse struct {
 	newPath    string
+	children   []*pb.ChildInfo
 	isLeafNode bool
 }
 
@@ -103,7 +105,7 @@ func initialModel(initialPath string) model {
 		client:        nc.NewNexusClient(conn),
 		path:          "/",
 		initPath:      initialPath,
-		children:      []string{},
+		children:      nil,
 		err:           err,
 		lastKeyMsg:    "",
 		isLeafNode:    false,
@@ -117,9 +119,97 @@ func (m model) Init() (tea.Model, tea.Cmd) {
 	if m.initPath != "/" {
 		return m, moveDownCmd(m.client, m.initPath, m.isLeafNode)
 	}
-	return m, fetchChildrenCmd(m.client, m.path)
+	return m, fetchRowsCmd(m.client, m.path)
 }
 
+func fetchRowsCmd(client *nc.NexusClient, path string) tea.Cmd {
+	log := logger.GetLogger()
+	cmds := []tea.Cmd{}
+	children, err := client.GetChildren(path)
+	if err != nil {
+		log.Error("Failed to fetch children", "error", err)
+		cmds = append(cmds, func() tea.Msg {
+			return errMsg{err}
+		})
+	}
+
+	rows := []table.Row{}
+	for index, child := range children {
+		log.Info("Fetching data", "path", path+child.Name)
+		data, dataType, err := client.GetFull(path + child.Name)
+		if err != nil {
+			log.Error("Failed to fetch data", "path", path, "error", err)
+			cmds = append(cmds, func() tea.Msg {
+				return errMsg{err}
+			})
+		}
+
+		/*
+			if data == nil {
+				log.Error("No data found", "path", path)
+				cmds = append(cmds, func() tea.Msg {
+					return errMsg{fmt.Errorf("no data found at path '%s'", path)}
+				})
+			} */
+
+		log.Debug("Matching data type", "type", dataType)
+		switch v := data.(type) {
+		case nil:
+			if dataType == "InternalNode" {
+				log.Debug("Internal node", "path", path+child.Name)
+				rows = append(rows, table.Row{child.Name, "⮧"})
+			} else {
+				log.Error("No data found", "path", path+child.Name)
+				rows = append(rows, table.Row{child.Name, "No data found"})
+			}
+		case *pb.IntValue:
+			valueStr := fmt.Sprintf("%d", v.Value)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.FloatValue:
+			valueStr := fmt.Sprintf("%f", v.Value)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.StringValue:
+			valueStr := v.Value
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.DatabaseTable:
+			valueStr := fmt.Sprintf("DatabaseTable: %s", v.TableName)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.Directory:
+			valueStr := fmt.Sprintf("Directory: %s", v.DirectoryPath)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.IndividualFile:
+			valueStr := fmt.Sprintf("File (%s): %s", v.FileType, v.FilePath)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		case *pb.EventStream:
+			log.Info("Event Stream: ", "server", v.Server, "topic", v.Topic)
+
+			messageChan, err := nc.GetEventStream(v)
+			if err != nil {
+				log.Error("Failed to get event stream", "error", err)
+				os.Exit(1)
+			}
+
+			log.Debug("Stream initialized", "channel", messageChan)
+
+			rows = append(rows, table.Row{child.Name, "Waiting for messages..."})
+
+			cmds = append(cmds, processStream(messageChan, index, "streamInit"))
+
+		default:
+			log.Debug("Unknown data type", "type", dataType)
+			valueStr := fmt.Sprintf("value: %v, has unknown type: %T", v, v)
+			rows = append(rows, table.Row{child.Name, valueStr})
+		}
+
+		//return rowDataMsg{rows, "fetchData"}
+	}
+	cmds = append(cmds, func() tea.Msg {
+		return rowDataMsg{rows, "fetchData"}
+	})
+	return tea.Batch(cmds...)
+}
+
+/*
 func fetchChildrenCmd(client *nc.NexusClient, path string) tea.Cmd {
 	log := logger.GetLogger()
 	return func() tea.Msg {
@@ -141,32 +231,18 @@ func fetchChildrenCmd(client *nc.NexusClient, path string) tea.Cmd {
 	}
 }
 
-// Function to process messages from the channel
-func processStream(messageChan <-chan []byte) tea.Cmd {
-	log := logger.GetLogger()
-	return func() tea.Msg {
-		message := <-messageChan
-		log.Debug("Stream message received", "message", message)
-		return streamDataMsg{
-			channel: messageChan,
-			rows:    []table.Row{{"Streaming Data", string(message)}},
-			message: "streamUpdate",
-		}
-	}
-}
-
 func fetchDataCmd(client *nc.NexusClient, path string) tea.Cmd {
 	log := logger.GetLogger()
 	return func() tea.Msg {
 		log.Info("Fetching data", "path", path)
-		data, err := client.Get(path)
+		data, _, err := client.GetFull(path)
 		if err != nil {
 			log.Error("Failed to fetch data", "path", path, "error", err)
 			return errMsg{err}
 		}
 
 		if data == nil {
-			log.Error("No data found", "path", path)
+			log.Error("fetchDataCmd:No data found", "path", path)
 			return errMsg{fmt.Errorf("no data found at path '%s'", path)}
 		}
 
@@ -204,10 +280,9 @@ func fetchDataCmd(client *nc.NexusClient, path string) tea.Cmd {
 
 			return streamDataMsg{
 				channel: messageChan,
-				rows:    []table.Row{{"Streaming Data", "Waiting for messages..."}},
+				row:     table.Row{"Waiting for messages..."},
 				message: "streamInit",
 			}
-
 		default:
 			valueStr := fmt.Sprintf("value: %v, has unknown type: %T", v, v)
 			rows = append(rows, table.Row{path, valueStr})
@@ -242,6 +317,34 @@ func filterChildrenCmd(client *nc.NexusClient, path string, searchInput textinpu
 			return filteredRows[i][0] < filteredRows[j][0]
 		})
 		return rowDataMsg{rows: filteredRows, message: "filterChildren"}
+	}
+}
+*/
+
+func filterRows(rows []table.Row, searchInput textinput.Model) []table.Row {
+	lastSegment := strings.Split(searchInput.Value(), "/")[len(strings.Split(searchInput.Value(), "/"))-1]
+
+	filteredRows := []table.Row{}
+	for _, row := range rows {
+		if strings.Contains(strings.ToLower(row[0]), strings.ToLower(lastSegment)) {
+			filteredRows = append(filteredRows, row)
+		}
+	}
+	return filteredRows
+}
+
+// Function to process messages from the channel
+func processStream(messageChan <-chan []byte, rowNum int, note string) tea.Cmd {
+	log := logger.GetLogger()
+	return func() tea.Msg {
+		message := <-messageChan
+		log.Debug("Stream message received", "message", message)
+		return streamDataMsg{
+			channel: messageChan,
+			row:     table.Row{string(message)},
+			rowNum:  rowNum,
+			message: note,
+		}
 	}
 }
 
@@ -282,6 +385,7 @@ func moveDownCmd(client *nc.NexusClient, newPath string, isLeafNode bool) tea.Cm
 				log.Debug("Leaf node", "path", newPath)
 				return moveDownResponse{
 					newPath:    newPath,
+					children:   children,
 					isLeafNode: true,
 				}
 			}
@@ -290,6 +394,7 @@ func moveDownCmd(client *nc.NexusClient, newPath string, isLeafNode bool) tea.Cm
 		}
 		return moveDownResponse{
 			newPath:    newPath,
+			children:   children,
 			isLeafNode: false,
 		}
 	}
@@ -310,21 +415,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isLeafNode = msg.isLeafNode
 		m.path = msg.newPath
 		m.searchInput.SetValue(msg.newPath)
+		m.children = msg.children
 		log.Debug("Moving down", "new_path", msg.newPath)
-		if msg.isLeafNode {
-			cmd = fetchDataCmd(m.client, msg.newPath)
-			cmds = append(cmds, cmd)
-		} else {
-			cmd = fetchChildrenCmd(m.client, msg.newPath)
-			cmds = append(cmds, cmd)
-		}
+		cmds = append(cmds, fetchRowsCmd(m.client, msg.newPath))
+		/*
+			if msg.isLeafNode {
+				cmd = fetchDataCmd(m.client, msg.newPath)
+				cmds = append(cmds, cmd)
+			} else {
+				cmd = fetchChildrenCmd(m.client, msg.newPath)
+				cmds = append(cmds, cmd)
+			} */
 	case moveUpResponse:
 		m.isLeafNode = false
 		m.streamingData = false
 		m.path = msg.newPath
+		m.children, _ = m.client.GetChildren(msg.newPath)
 		m.searchInput.SetValue(msg.newPath)
 		log.Debug("Moving up", "new_path", msg.newPath)
-		cmd = fetchChildrenCmd(m.client, msg.newPath)
+		cmd = fetchRowsCmd(m.client, msg.newPath)
 		cmds = append(cmds, cmd)
 	case streamDataMsg:
 		log.Debug("Stream data message received", "message", msg.message)
@@ -332,9 +441,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.streamingData = true
 		}
 		if m.streamingData {
-			m.table.SetRows(msg.rows)
+			rows := m.table.Rows()
+			rows[msg.rowNum] = msg.row
+			m.table.SetRows(rows)
 			log.Debug("Continuing stream", "channel", msg.channel)
-			cmds = append(cmds, processStream(msg.channel))
+			cmds = append(cmds, processStream(msg.channel, msg.rowNum, "streamUpdate"))
 		}
 	case tea.KeyMsg:
 		m.lastKeyMsg = msg.String()
@@ -355,9 +466,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					cmds = append(cmds, cmd)
 				}
 				m.searchInput, _ = m.searchInput.Update(msg)
-
-				cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
-				cmds = append(cmds, cmd)
+				m.table.SetRows(filterRows(m.rows, m.searchInput))
+				//cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
+				//cmds = append(cmds, cmd)
 			case "/":
 				char := m.searchInput.Value()[len(m.searchInput.Value())-1]
 				if char != '/' {
@@ -369,8 +480,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			default:
 				m.searchInput, cmd = m.searchInput.Update(msg)
 				cmds = append(cmds, cmd)
-				cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
-				cmds = append(cmds, cmd)
+				m.table.SetRows(filterRows(m.rows, m.searchInput))
+				//cmd = filterChildrenCmd(m.client, m.path, m.searchInput)
+				//cmds = append(cmds, cmd)
 			}
 
 		case false:
@@ -378,11 +490,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "q", "ctrl+c":
 				cmds = append(cmds, tea.Quit)
 			case "enter":
-				if len(m.table.Rows()) > 0 {
+				if len(m.rows) > 0 {
 					selected := m.table.SelectedRow()[0]
 					newPath := m.path + selected + "/"
 					cmd = moveDownCmd(m.client, newPath, m.isLeafNode)
 					cmds = append(cmds, cmd)
+				} else {
+					log.Debug("No rows selected", "path", m.path)
 				}
 			case "esc", "backspace":
 				cmd = moveUpCmd(m.path)
@@ -398,8 +512,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case rowDataMsg:
-		log.Debug("Children message received", "message", msg.message, "rows", msg.rows)
-		m.table.SetRows(msg.rows)
+		log.Debug("Row data message received", "message", msg.message, "rows", msg.rows)
+		m.rows = msg.rows
+		m.table.SetRows(m.rows)
 
 	case errMsg:
 		m.err = msg.err

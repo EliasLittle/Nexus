@@ -130,7 +130,11 @@ func (t *Trie) GetChildren(path string) []*pb.ChildInfo {
 
 	children := make([]*pb.ChildInfo, 0, len(node.Children))
 	for segment, child := range node.Children {
-		children = append(children, &pb.ChildInfo{Name: segment, Type: child.ValueType})
+		children = append(children, &pb.ChildInfo{
+			Name:        segment,
+			Type:        child.ValueType,
+			NumChildren: int32(len(child.Children)),
+		})
 	}
 	log.Debug("Children of path", "path", path, "children", children)
 	return children

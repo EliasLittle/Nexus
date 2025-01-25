@@ -4,6 +4,7 @@ import (
 	"context"
 	"nexus/pkg/logger"
 	pb "nexus/pkg/proto"
+	"sort"
 )
 
 const (
@@ -198,6 +199,9 @@ func (s *NexusServer) GetChildren(ctx context.Context, req *pb.GetChildrenReques
 	log.Info("Received request to list children", "path", req.Path)
 
 	children := s.Index.GetChildren(req.Path)
+	sort.Slice(children, func(i, j int) bool {
+		return children[i].Name < children[j].Name
+	})
 	return &pb.GetChildrenResponse{Children: children}, nil
 }
 

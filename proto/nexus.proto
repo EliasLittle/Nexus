@@ -186,6 +186,7 @@ message GetChildrenResponse {
 message ChildInfo {
   string name = 1; // Name of the child
   string type = 2; // Type of the child
+  int32 numChildren = 3; // Number of children
 }
 
 message GetPathTypeResponse {

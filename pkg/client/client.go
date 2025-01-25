@@ -171,6 +171,8 @@ func (n *NexusClient) GetFull(path string) (interface{}, string, error) {
 	}
 
 	switch valType := node.GetValueType(); valType {
+	case "InternalNode":
+		return nil, valType, nil
 	case "StringValue":
 		return node.GetStringValue(), valType, nil
 	case "IntValue":
