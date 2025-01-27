@@ -46,6 +46,7 @@ You can publish values and datasets using the Nexus client. For example:
 - Inspect app internal state
     - Build system progress
     - Git branches
+    - Docker container status
 - Share data between apps (pub-sub)
 - Save queries
 - Data versioning
@@ -58,6 +59,10 @@ You can publish values and datasets using the Nexus client. For example:
 - [ ] Implement user authentication and authorization
 - [x] Improve error handling and logging
 - [ ] Watch and auto-publish files updates, directories (new files, subdirs), and DBs (new tables)
+- [ ] Symbolic path links
+    - i.e. /status/my_app/ -> /my_app/prod/bin/status
+- [ ] Support functions
+    - i.e. publish a bash command or binary to a path. When that path is accessed, the command is executed and the output is returned.
 - [ ] Remote hosting
     - [ ] Local data storage (Redis)
     - [ ] Remote data storage (S3, GCS, etc.)
