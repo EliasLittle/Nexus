@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"nexus/pkg/logger"
 	"os"
+	"strconv"
 	"strings"
 
 	nc "nexus/pkg/client"
@@ -34,6 +35,59 @@ type model struct {
 	searchInput   textinput.Model
 	isSearching   bool
 	streamingData bool
+	showPopup     bool
+	popupType     string // "add" or "delete"
+	popupInput    textinput.Model
+	// New fields for type selection and form
+	selectedType    int
+	showTypeSelect  bool
+	showForm        bool
+	formInputs      []textinput.Model
+	formInputCursor int
+	formLabels      []string
+	currentFormType string
+}
+
+// Add constants for data types
+const (
+	typeValue = iota
+	typeEventStream
+	typeFile
+	typeDirectory
+	typeDBTable
+)
+
+var dataTypes = []string{
+	"Value",
+	"Event Stream",
+	"File",
+	"Directory",
+	"Database Table",
+}
+
+var formFields = map[string][]string{
+	"Value": {
+		"Value",
+	},
+	"Event Stream": {
+		"Server",
+		"Topic",
+	},
+	"File": {
+		"File Path",
+		"File Type",
+	},
+	"Directory": {
+		"Directory Path",
+		"File Type",
+	},
+	"Database Table": {
+		"DB Type",
+		"Host",
+		"Port",
+		"DB Name",
+		"Table Name",
+	},
 }
 
 type rowDataMsg struct {
@@ -44,6 +98,7 @@ type rowDataMsg struct {
 type streamDataMsg struct {
 	channel <-chan []byte
 	row     table.Row
+	label   string
 	rowNum  int
 	message string
 }
@@ -60,6 +115,16 @@ type moveDownResponse struct {
 
 type moveUpResponse struct {
 	newPath string
+}
+
+type addPathResponse struct {
+	success bool
+	message string
+}
+
+type deletePathResponse struct {
+	success bool
+	message string
 }
 
 func initialModel(initialPath string) model {
@@ -98,20 +163,45 @@ func initialModel(initialPath string) model {
 	searchInput.Placeholder = "Search..."
 	searchInput.Blur()
 	searchInput.CharLimit = 156
-	//searchInput.Width = 20
+
+	// Initialize form inputs for the largest possible form
+	maxFormFields := 0
+	for _, fields := range formFields {
+		if len(fields) > maxFormFields {
+			maxFormFields = len(fields)
+		}
+	}
+
+	formInputs := make([]textinput.Model, maxFormFields)
+	for i := range formInputs {
+		input := textinput.New()
+		input.CharLimit = 156
+		input.Blur()
+		formInputs[i] = input
+	}
 
 	return model{
-		table:         t,
-		client:        nc.NewNexusClient(conn),
-		path:          "/",
-		initPath:      initialPath,
-		children:      nil,
-		err:           err,
-		lastKeyMsg:    "",
-		isLeafNode:    false,
-		searchInput:   searchInput,
-		isSearching:   false,
-		streamingData: false,
+		table:           t,
+		client:          nc.NewNexusClient(conn),
+		path:            "/",
+		initPath:        initialPath,
+		children:        nil,
+		err:             err,
+		lastKeyMsg:      "",
+		isLeafNode:      false,
+		searchInput:     searchInput,
+		isSearching:     false,
+		streamingData:   false,
+		showPopup:       false,
+		popupType:       "",
+		popupInput:      textinput.New(),
+		selectedType:    0,
+		showTypeSelect:  false,
+		showForm:        false,
+		formInputs:      formInputs,
+		formInputCursor: 0,
+		formLabels:      nil,
+		currentFormType: "",
 	}
 }
 
@@ -193,7 +283,7 @@ func fetchRowsCmd(client *nc.NexusClient, path string) tea.Cmd {
 
 			rows = append(rows, table.Row{child.Name, "Waiting for messages..."})
 
-			cmds = append(cmds, processStream(messageChan, index, "streamInit"))
+			cmds = append(cmds, processStream(messageChan, child.Name, index, "streamInit"))
 
 		default:
 			log.Debug("Unknown data type", "type", dataType)
@@ -334,14 +424,15 @@ func filterRows(rows []table.Row, searchInput textinput.Model) []table.Row {
 }
 
 // Function to process messages from the channel
-func processStream(messageChan <-chan []byte, rowNum int, note string) tea.Cmd {
+func processStream(messageChan <-chan []byte, label string, rowNum int, note string) tea.Cmd {
 	log := logger.GetLogger()
 	return func() tea.Msg {
 		message := <-messageChan
 		log.Debug("Stream message received", "message", message)
 		return streamDataMsg{
 			channel: messageChan,
-			row:     table.Row{string(message)},
+			row:     table.Row{label, string(message)},
+			label:   label,
 			rowNum:  rowNum,
 			message: note,
 		}
@@ -400,15 +491,48 @@ func moveDownCmd(client *nc.NexusClient, newPath string, isLeafNode bool) tea.Cm
 	}
 }
 
+func addPathCmd(client *nc.NexusClient, path string, value interface{}) tea.Cmd {
+	log := logger.GetLogger()
+	return func() tea.Msg {
+		err := client.PublishValue(path, value)
+		if err != nil {
+			log.Error("Failed to add path", "error", err)
+			return addPathResponse{
+				success: false,
+				message: fmt.Sprintf("Failed to add path: %v", err),
+			}
+		}
+		return addPathResponse{
+			success: true,
+			message: "Path added successfully",
+		}
+	}
+}
+
+func deletePathCmd(client *nc.NexusClient, path string) tea.Cmd {
+	log := logger.GetLogger()
+	return func() tea.Msg {
+		err := client.Delete(path)
+		if err != nil {
+			log.Error("Failed to delete path", "error", err)
+			return deletePathResponse{
+				success: false,
+				message: fmt.Sprintf("Failed to delete path: %v", err),
+			}
+		}
+		return deletePathResponse{
+			success: true,
+			message: "Path deleted successfully",
+		}
+	}
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	log := logger.GetLogger()
 	var (
 		cmd  tea.Cmd
 		cmds []tea.Cmd
 	)
-
-	//m.table, cmd = m.table.Update(msg)
-	//cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
 	case moveDownResponse:
@@ -418,14 +542,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.children = msg.children
 		log.Debug("Moving down", "new_path", msg.newPath)
 		cmds = append(cmds, fetchRowsCmd(m.client, msg.newPath))
-		/*
-			if msg.isLeafNode {
-				cmd = fetchDataCmd(m.client, msg.newPath)
-				cmds = append(cmds, cmd)
-			} else {
-				cmd = fetchChildrenCmd(m.client, msg.newPath)
-				cmds = append(cmds, cmd)
-			} */
 	case moveUpResponse:
 		m.isLeafNode = false
 		m.streamingData = false
@@ -435,6 +551,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Debug("Moving up", "new_path", msg.newPath)
 		cmd = fetchRowsCmd(m.client, msg.newPath)
 		cmds = append(cmds, cmd)
+	case addPathResponse:
+		m.showPopup = false
+		m.showTypeSelect = false
+		m.showForm = false
+		if msg.success {
+			cmd = fetchRowsCmd(m.client, m.path)
+			cmds = append(cmds, cmd)
+		} else {
+			m.err = fmt.Errorf(msg.message)
+		}
+	case deletePathResponse:
+		m.showPopup = false
+		if msg.success {
+			cmd = fetchRowsCmd(m.client, m.path)
+			cmds = append(cmds, cmd)
+		} else {
+			m.err = fmt.Errorf(msg.message)
+		}
 	case streamDataMsg:
 		log.Debug("Stream data message received", "message", msg.message)
 		if msg.message == "streamInit" {
@@ -445,10 +579,150 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			rows[msg.rowNum] = msg.row
 			m.table.SetRows(rows)
 			log.Debug("Continuing stream", "channel", msg.channel)
-			cmds = append(cmds, processStream(msg.channel, msg.rowNum, "streamUpdate"))
+			cmds = append(cmds, processStream(msg.channel, msg.label, msg.rowNum, "streamUpdate"))
 		}
 	case tea.KeyMsg:
 		m.lastKeyMsg = msg.String()
+
+		if m.showPopup {
+			if m.showTypeSelect {
+				switch msg.String() {
+				case "esc":
+					m.showPopup = false
+					m.showTypeSelect = false
+				case "enter":
+					m.showTypeSelect = false
+					m.showForm = true
+					m.currentFormType = dataTypes[m.selectedType]
+					m.formLabels = formFields[m.currentFormType]
+					// Reset and focus first input
+					for i := range m.formInputs {
+						m.formInputs[i].Reset()
+						m.formInputs[i].Blur()
+					}
+					m.formInputCursor = 0
+					m.formInputs[0].Focus()
+				case "up":
+					m.selectedType--
+					if m.selectedType < 0 {
+						m.selectedType = len(dataTypes) - 1
+					}
+				case "down":
+					m.selectedType = (m.selectedType + 1) % len(dataTypes)
+				}
+			} else if m.showForm {
+				switch msg.String() {
+				case "esc":
+					m.showPopup = false
+					m.showForm = false
+				case "enter":
+					if m.formInputCursor == len(m.formLabels)-1 {
+						// Submit form
+						var cmd tea.Cmd
+						switch m.currentFormType {
+						case "Value":
+							cmd = addPathCmd(m.client, m.path+m.popupInput.Value(), m.formInputs[0].Value())
+						case "Event Stream":
+							es := nc.CreateEventStream(m.formInputs[1].Value())
+							es.Server = m.formInputs[0].Value()
+							cmd = func() tea.Msg {
+								err := m.client.PublishEventStream(m.path+m.popupInput.Value(), es)
+								if err != nil {
+									return addPathResponse{success: false, message: err.Error()}
+								}
+								return addPathResponse{success: true, message: "Event stream added"}
+							}
+						case "File":
+							file := nc.CreateIndividualFile(m.formInputs[0].Value())
+							cmd = func() tea.Msg {
+								err := m.client.PublishIndividualFile(m.path+m.popupInput.Value(), file)
+								if err != nil {
+									return addPathResponse{success: false, message: err.Error()}
+								}
+								return addPathResponse{success: true, message: "File added"}
+							}
+						case "Directory":
+							dir, err := nc.CreateDirectory(m.formInputs[0].Value())
+							if err != nil {
+								cmd = func() tea.Msg {
+									return addPathResponse{success: false, message: err.Error()}
+								}
+							} else {
+								cmd = func() tea.Msg {
+									err := m.client.PublishDirectory(m.path+m.popupInput.Value(), dir)
+									if err != nil {
+										return addPathResponse{success: false, message: err.Error()}
+									}
+									return addPathResponse{success: true, message: "Directory added"}
+								}
+							}
+						case "Database Table":
+							port, _ := strconv.ParseInt(m.formInputs[2].Value(), 10, 32)
+							table := nc.CreateDatabaseTable(
+								m.formInputs[0].Value(), // DB Type
+								m.formInputs[1].Value(), // Host
+								int32(port),             // Port
+								m.formInputs[3].Value(), // DB Name
+								m.formInputs[4].Value(), // Table Name
+							)
+							cmd = func() tea.Msg {
+								err := m.client.PublishDatabaseTable(m.path+m.popupInput.Value(), table)
+								if err != nil {
+									return addPathResponse{success: false, message: err.Error()}
+								}
+								return addPathResponse{success: true, message: "Database table added"}
+							}
+						}
+						cmds = append(cmds, cmd)
+					} else {
+						// Move to next input
+						m.formInputs[m.formInputCursor].Blur()
+						m.formInputCursor++
+						m.formInputs[m.formInputCursor].Focus()
+					}
+				case "tab":
+					// Move to next input
+					m.formInputs[m.formInputCursor].Blur()
+					m.formInputCursor = (m.formInputCursor + 1) % len(m.formLabels)
+					m.formInputs[m.formInputCursor].Focus()
+				case "shift+tab":
+					// Move to previous input
+					m.formInputs[m.formInputCursor].Blur()
+					m.formInputCursor--
+					if m.formInputCursor < 0 {
+						m.formInputCursor = len(m.formLabels) - 1
+					}
+					m.formInputs[m.formInputCursor].Focus()
+				default:
+					// Update the focused input
+					m.formInputs[m.formInputCursor], cmd = m.formInputs[m.formInputCursor].Update(msg)
+					cmds = append(cmds, cmd)
+				}
+			} else {
+				switch msg.String() {
+				case "esc":
+					m.showPopup = false
+					m.popupInput.Reset()
+				case "enter":
+					if m.popupType == "add" {
+						m.showTypeSelect = true
+					} else if m.popupType == "delete" {
+						if len(m.table.Rows()) > 0 {
+							selected := m.table.SelectedRow()[0]
+							cmd = deletePathCmd(m.client, m.path+selected)
+							cmds = append(cmds, cmd)
+						}
+					}
+				default:
+					if m.popupType == "add" {
+						m.popupInput, cmd = m.popupInput.Update(msg)
+						cmds = append(cmds, cmd)
+					}
+				}
+			}
+			return m, tea.Batch(cmds...)
+		}
+
 		switch m.isSearching {
 		case true:
 			switch m.lastKeyMsg {
@@ -507,20 +781,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.searchInput.SetCursor(len(m.searchInput.Value()))
 				m.isSearching = true
 				m.searchInput.Focus()
+			case "a":
+				m.showPopup = true
+				m.popupType = "add"
+				m.popupInput.Focus()
+				m.popupInput.Placeholder = "Enter path name..."
+			case "d":
+				m.showPopup = true
+				m.popupType = "delete"
 			default:
+				log.Debug("Default table key press", "key", m.lastKeyMsg)
 				m.table, cmd = m.table.Update(msg)
 				cmds = append(cmds, cmd)
 			}
 		}
-
 	case rowDataMsg:
 		log.Debug("Row data message received", "message", msg.message, "rows", msg.rows)
 		m.rows = msg.rows
 		m.table.SetRows(m.rows)
-
 	case errMsg:
 		m.err = msg.err
-
 	}
 
 	return m, tea.Batch(cmds...)
@@ -546,13 +826,68 @@ func (m model) View() string {
 			Render(fmt.Sprintf(" Search: %s ", m.searchInput.View()))
 	}
 
-	return baseStyle.Render(
-		//fmt.Sprintf("Current path: %s\n\n isSearching: %t\n\n Last Key Pressed: %s\n\n%s\n\nPress q to quit, enter to navigate, backspace/esc to go up",
-		fmt.Sprintf("Path: %s\n\n%s\n\n%s\n\nPress q to quit, / to search, enter to navigate, backspace/esc to go up",
+	mainView := baseStyle.Render(
+		fmt.Sprintf("Path: %s\n\n%s\n\n%s\n\nPress q to quit, / to search, enter to navigate, backspace/esc to go up, a to add, d to delete",
 			m.path,
 			searchBar,
 			m.table.View(),
 		))
+
+	if m.showPopup {
+		popup := lipgloss.NewStyle().
+			BorderStyle(lipgloss.DoubleBorder()).
+			BorderForeground(lipgloss.Color("63")).
+			Padding(1, 2).
+			Width(50)
+
+		var popupContent string
+		if m.showTypeSelect {
+			// Build type selection menu
+			var typeList strings.Builder
+			for i, t := range dataTypes {
+				if i == m.selectedType {
+					typeList.WriteString("> " + t + "\n")
+				} else {
+					typeList.WriteString("  " + t + "\n")
+				}
+			}
+			popupContent = fmt.Sprintf("Select Data Type\n\n%s\n\nPress enter to select, esc to cancel", typeList.String())
+		} else if m.showForm {
+			// Build form view
+			var form strings.Builder
+			form.WriteString(fmt.Sprintf("Add New %s\n\n", m.currentFormType))
+			form.WriteString(fmt.Sprintf("Path: %s\n\n", m.popupInput.Value()))
+
+			// Add form fields
+			for i, label := range m.formLabels {
+				if i == m.formInputCursor {
+					form.WriteString(fmt.Sprintf("> %s: %s\n", label, m.formInputs[i].View()))
+				} else {
+					form.WriteString(fmt.Sprintf("  %s: %s\n", label, m.formInputs[i].View()))
+				}
+			}
+
+			form.WriteString("\nPress enter to confirm, tab to move between fields, esc to cancel")
+			popupContent = form.String()
+		} else if m.popupType == "add" {
+			popupContent = fmt.Sprintf("Enter Path Name\n\n%s\n\nPress enter to continue, esc to cancel", m.popupInput.View())
+		} else if m.popupType == "delete" {
+			if len(m.table.Rows()) > 0 {
+				selected := m.table.SelectedRow()[0]
+				popupContent = fmt.Sprintf("Delete Path\n\nAre you sure you want to delete '%s'?\n\nPress enter to confirm, esc to cancel", selected)
+			} else {
+				popupContent = "No path selected to delete\n\nPress esc to cancel"
+			}
+		}
+
+		return lipgloss.JoinVertical(lipgloss.Center,
+			mainView,
+			"\n",
+			popup.Render(popupContent),
+		)
+	}
+
+	return mainView
 }
 
 func main() {

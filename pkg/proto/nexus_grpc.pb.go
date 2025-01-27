@@ -24,6 +24,7 @@ const (
 	NexusService_RegisterDirectory_FullMethodName     = "/nexus.NexusService/RegisterDirectory"
 	NexusService_RegisterDatabaseTable_FullMethodName = "/nexus.NexusService/RegisterDatabaseTable"
 	NexusService_StoreValue_FullMethodName            = "/nexus.NexusService/StoreValue"
+	NexusService_DeletePath_FullMethodName            = "/nexus.NexusService/DeletePath"
 	NexusService_Subscribe_FullMethodName             = "/nexus.NexusService/Subscribe"
 	NexusService_GetNode_FullMethodName               = "/nexus.NexusService/GetNode"
 	NexusService_GetChildren_FullMethodName           = "/nexus.NexusService/GetChildren"
@@ -41,6 +42,7 @@ type NexusServiceClient interface {
 	RegisterDirectory(ctx context.Context, in *RegisterDirectoryRequest, opts ...grpc.CallOption) (*RegisterDirectoryResponse, error)
 	RegisterDatabaseTable(ctx context.Context, in *RegisterDatabaseTableRequest, opts ...grpc.CallOption) (*RegisterDatabaseTableResponse, error)
 	StoreValue(ctx context.Context, in *StoreValueRequest, opts ...grpc.CallOption) (*StoreValueResponse, error)
+	DeletePath(ctx context.Context, in *DeletePathRequest, opts ...grpc.CallOption) (*DeletePathResponse, error)
 	// Consumer endpoints
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error)
 	GetNode(ctx context.Context, in *GetPathRequest, opts ...grpc.CallOption) (*GetNodeResponse, error)
@@ -106,6 +108,16 @@ func (c *nexusServiceClient) StoreValue(ctx context.Context, in *StoreValueReque
 	return out, nil
 }
 
+func (c *nexusServiceClient) DeletePath(ctx context.Context, in *DeletePathRequest, opts ...grpc.CallOption) (*DeletePathResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DeletePathResponse)
+	err := c.cc.Invoke(ctx, NexusService_DeletePath_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *nexusServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Event], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &NexusService_ServiceDesc.Streams[0], NexusService_Subscribe_FullMethodName, cOpts...)
@@ -157,6 +169,7 @@ type NexusServiceServer interface {
 	RegisterDirectory(context.Context, *RegisterDirectoryRequest) (*RegisterDirectoryResponse, error)
 	RegisterDatabaseTable(context.Context, *RegisterDatabaseTableRequest) (*RegisterDatabaseTableResponse, error)
 	StoreValue(context.Context, *StoreValueRequest) (*StoreValueResponse, error)
+	DeletePath(context.Context, *DeletePathRequest) (*DeletePathResponse, error)
 	// Consumer endpoints
 	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error
 	GetNode(context.Context, *GetPathRequest) (*GetNodeResponse, error)
@@ -186,6 +199,9 @@ func (UnimplementedNexusServiceServer) RegisterDatabaseTable(context.Context, *R
 }
 func (UnimplementedNexusServiceServer) StoreValue(context.Context, *StoreValueRequest) (*StoreValueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StoreValue not implemented")
+}
+func (UnimplementedNexusServiceServer) DeletePath(context.Context, *DeletePathRequest) (*DeletePathResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeletePath not implemented")
 }
 func (UnimplementedNexusServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[Event]) error {
 	return status.Errorf(codes.Unimplemented, "method Subscribe not implemented")
@@ -307,6 +323,24 @@ func _NexusService_StoreValue_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _NexusService_DeletePath_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePathRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NexusServiceServer).DeletePath(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NexusService_DeletePath_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NexusServiceServer).DeletePath(ctx, req.(*DeletePathRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _NexusService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -380,6 +414,10 @@ var NexusService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StoreValue",
 			Handler:    _NexusService_StoreValue_Handler,
+		},
+		{
+			MethodName: "DeletePath",
+			Handler:    _NexusService_DeletePath_Handler,
 		},
 		{
 			MethodName: "GetNode",

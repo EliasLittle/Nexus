@@ -11,7 +11,7 @@ service NexusService {
   rpc RegisterDirectory (RegisterDirectoryRequest) returns (RegisterDirectoryResponse);
   rpc RegisterDatabaseTable (RegisterDatabaseTableRequest) returns (RegisterDatabaseTableResponse);
   rpc StoreValue (StoreValueRequest) returns (StoreValueResponse);
-
+  rpc DeletePath (DeletePathRequest) returns (DeletePathResponse);
   // Consumer endpoints
   rpc Subscribe (SubscribeRequest) returns (stream Event);
   rpc GetNode (GetPathRequest) returns (GetNodeResponse);
@@ -72,6 +72,15 @@ message StoreValueRequest {
 }
 
 message StoreValueResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DeletePathRequest {
+  string path = 1; // Path in the data Trie
+}
+
+message DeletePathResponse {
   bool success = 1;
   string error = 2;
 }

@@ -193,3 +193,26 @@ func (n *NexusClient) GetFull(path string) (interface{}, string, error) {
 		return nil, "", fmt.Errorf("unknown value type: %s", valType)
 	}
 }
+
+func (n *NexusClient) Delete(path string) error {
+	log := logger.GetLogger()
+	log.Debug("Deleting path", "path", path)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	req := &pb.DeletePathRequest{Path: path}
+	res, err := n.Client.DeletePath(ctx, req)
+	if err != nil {
+		log.Error("Failed to delete path", "error", err)
+		return err
+	}
+
+	if !res.Success {
+		log.Error("Failed to delete path", "error", res.Error)
+		return fmt.Errorf(res.Error)
+	}
+
+	log.Debug("Path deleted", "path", path)
+	return nil
+}

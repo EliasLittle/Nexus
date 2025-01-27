@@ -160,6 +160,39 @@ func (t *Trie) GetNode(path string) (*TrieNode, error) {
 	return node, nil
 }
 
+// Delete deletes a path from the Trie
+func (t *Trie) Delete(path string) (bool, error) {
+	log := logger.GetLogger()
+	log.Debug("Deleting path", "path", path)
+	node := t.Root
+	segments := splitPath(path)
+
+	for i, segment := range segments {
+		if i == len(segments)-1 {
+			// If it's the last segment, check if it exists and delete it
+			if _, exists := node.Children[segment]; exists {
+				delete(node.Children, segment)
+				log.Debug("Deleted segment", "segment", segment)
+				return true, nil
+			} else {
+				log.Debug("Path not found, nothing to delete", "path", path)
+				return false, fmt.Errorf("path not found: %s", path)
+			}
+		}
+
+		// Move to the next segment
+		if child, exists := node.Children[segment]; exists {
+			node = child
+		} else {
+			log.Debug("Path not found, nothing to delete", "path", path)
+			return false, fmt.Errorf("path not found: %s", path)
+		}
+	}
+
+	log.Debug("Path deleted", "path", path)
+	return false, fmt.Errorf("path not found: %s", path)
+}
+
 // SaveToDisk saves the Trie to a file
 func (t *Trie) SaveToDisk(filename string) error {
 	log := logger.GetLogger()

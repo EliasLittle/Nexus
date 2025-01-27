@@ -76,6 +76,17 @@ func (s *NexusServer) StoreValue(ctx context.Context, req *pb.StoreValueRequest)
 	return &pb.StoreValueResponse{Success: true}, nil
 }
 
+// DeletePath implements the publisher endpoint for deleting paths
+func (s *NexusServer) DeletePath(ctx context.Context, req *pb.DeletePathRequest) (*pb.DeletePathResponse, error) {
+	log := logger.GetLogger()
+	log.Info("Received delete path request", "path", req.Path)
+
+	s.Index.Delete(req.Path)
+	//s.Index.Traverse() // Print the Trie after the update
+
+	return &pb.DeletePathResponse{Success: true}, nil
+}
+
 // GetNode implements the consumer endpoint for getting node information
 func (s *NexusServer) GetNode(ctx context.Context, req *pb.GetPathRequest) (*pb.GetNodeResponse, error) {
 	log := logger.GetLogger()

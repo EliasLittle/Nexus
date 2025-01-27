@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/signal"
 
 	"nexus/pkg/logger"
 	pb "nexus/pkg/proto"
@@ -49,13 +50,21 @@ func main() {
 		log.Fatal("Failed to create new server", "error", err)
 	}
 
-	// Save index on exit
-	defer func() {
+	// Channel to listen for interrupt signals
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+
+	go func() {
+		<-signalChan // Wait for interrupt signal
+		log.Info("Received interrupt signal, saving index...")
+		// Call the save index function directly
 		if err := server.SaveIndex(fullSavePath); err != nil {
 			log.Error("Failed to save index", "error", err)
 		} else {
 			log.Info("Saved index", "path", fullSavePath)
 		}
+		log.Info("Shutting down...")
+		os.Exit(0) // Exit gracefully
 	}()
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", ns.DefaultPort))
