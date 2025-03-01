@@ -1,0 +1,28 @@
+version: '3'
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_GRPC_PROXY=http://localhost:8080
+    depends_on:
+      envoy:
+        condition: service_healthy
+
+  envoy:
+    image: envoyproxy/envoy:v1.28-latest
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+    ports:
+      - "8080:8080"
+      - "9901:9901"
+    command: /bin/sh -c "apt-get update && apt-get install -y curl && /usr/local/bin/envoy -c /etc/envoy/envoy.yaml"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9901/ready"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+      start_period: 10s 

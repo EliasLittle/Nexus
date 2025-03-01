@@ -11,13 +11,28 @@ import (
 	ns "nexus/pkg/server"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
+
+func printHelp() {
+	fmt.Println("Usage: 'nexus-server <load_file_path> <save_file_path>' or 'nexus-server <save_file_path>'")
+	fmt.Println("Options:")
+	fmt.Println("  <load_file_path>   Path to the file to load.")
+	fmt.Println("  <save_file_path>   Path to the file to save.")
+	fmt.Println("  --help             Show this help message.")
+}
 
 func main() {
 	// Initialize logger
 	log := logger.GetLogger()
 
 	log.Info("Starting Nexus Server...")
+
+	// Check for help command
+	if len(os.Args) > 1 && os.Args[1] == "--help" {
+		printHelp()
+		os.Exit(0)
+	}
 
 	var fullLoadPath, fullSavePath string
 
@@ -74,6 +89,9 @@ func main() {
 
 	s := grpc.NewServer()
 	pb.RegisterNexusServiceServer(s, server)
+
+	// Enable reflection
+	reflection.Register(s)
 
 	log.Info("Server listening", "port", ns.DefaultPort)
 

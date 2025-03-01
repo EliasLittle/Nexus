@@ -20,8 +20,8 @@ yukon
 .vscode/
 
 # Ignore Nexus-Web directories
-nexus-web/build/
-nexus-web/node_modules/
+Nexus-Web/build/
+Nexus-Web/node_modules/
 
 # Ignore logs
 logs/
