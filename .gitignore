@@ -16,6 +16,9 @@ nexus-client
 nexus-server
 yukon
 
+# Ignore generated proto files
+pkg/proto/
+
 # Ignore .vscode directory
 .vscode/
 
