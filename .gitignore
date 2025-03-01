@@ -17,7 +17,7 @@ nexus-server
 yukon
 
 # Ignore generated proto files
-pkg/proto/
+pkg/proto/*
 
 # Ignore .vscode directory
 .vscode/
