@@ -43,13 +43,18 @@ You can publish values and datasets using the Nexus client. For example:
 ## Example Use Cases
 
 - Single location for all data sharing. Can organize by app, team, user, etc.
-- Inspect app internal state
+- Monitoring
     - Build system progress
     - Git branches
     - Docker container status
+    - Kubernetes
+- Inspect app internal state
 - Share data between apps (pub-sub)
 - Save queries
 - Data versioning
+- Personal scripting   
+    - e.g. a script that searches a directory for "TODO:_" statements and then publishes these to /users/$USER/todo/path/of/project
+- JIRA integration?
 
 
 ## Roadmap
@@ -66,6 +71,9 @@ You can publish values and datasets using the Nexus client. For example:
 - [ ] Remote hosting
     - [ ] Local data storage (Redis)
     - [ ] Remote data storage (S3, GCS, etc.)
+- [ ] Shard Nexus server
+    - [ ] Path can point to a specific path on a different server
+    - i.e. americas:my/main/path/alt -> europe:my/european/path
 - [ ] Documentation for API endpoints
 - [ ] Implement data filtering
 - [ ] Implement data transformation

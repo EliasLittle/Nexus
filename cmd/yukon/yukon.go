@@ -491,21 +491,47 @@ func moveDownCmd(client *nc.NexusClient, newPath string, isLeafNode bool) tea.Cm
 	}
 }
 
-func addPathCmd(client *nc.NexusClient, path string, value interface{}) tea.Cmd {
+func addPathCmd(client *nc.NexusClient, path string, dataType string, popupInput string, formInputs []textinput.Model) tea.Cmd {
 	log := logger.GetLogger()
 	return func() tea.Msg {
-		err := client.PublishValue(path, value)
+		var err error
+		switch dataType {
+		case "Value":
+			err = client.PublishValue(path+popupInput, formInputs[0].Value())
+			if err != nil {
+				log.Error("Failed to add value", "error", err)
+				return addPathResponse{success: false, message: err.Error()}
+			}
+			return addPathResponse{success: true, message: "Value added"}
+		case "Event Stream":
+			es := nc.CreateEventStream(formInputs[1].Value())
+			es.Server = formInputs[0].Value()
+			err = client.PublishEventStream(path+popupInput, es)
+		case "File":
+			file := nc.CreateIndividualFile(formInputs[0].Value())
+			err = client.PublishIndividualFile(path+popupInput, file)
+		case "Directory":
+			dir, err := nc.CreateDirectory(formInputs[0].Value())
+			if err == nil {
+				err = client.PublishDirectory(path+popupInput, dir)
+			}
+		case "Database Table":
+			port, _ := strconv.ParseInt(formInputs[2].Value(), 10, 32)
+			table := nc.CreateDatabaseTable(
+				formInputs[0].Value(), // DB Type
+				formInputs[1].Value(), // Host
+				int32(port),           // Port
+				formInputs[3].Value(), // DB Name
+				formInputs[4].Value(), // Table Name
+			)
+			err = client.PublishDatabaseTable(path+popupInput, table)
+		}
+
 		if err != nil {
 			log.Error("Failed to add path", "error", err)
-			return addPathResponse{
-				success: false,
-				message: fmt.Sprintf("Failed to add path: %v", err),
-			}
+			return addPathResponse{success: false, message: err.Error()}
 		}
-		return addPathResponse{
-			success: true,
-			message: "Path added successfully",
-		}
+		return addPathResponse{success: true, message: dataType + " added"}
 	}
 }
 
@@ -618,61 +644,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case "enter":
 					if m.formInputCursor == len(m.formLabels)-1 {
 						// Submit form
-						var cmd tea.Cmd
-						switch m.currentFormType {
-						case "Value":
-							cmd = addPathCmd(m.client, m.path+m.popupInput.Value(), m.formInputs[0].Value())
-						case "Event Stream":
-							es := nc.CreateEventStream(m.formInputs[1].Value())
-							es.Server = m.formInputs[0].Value()
-							cmd = func() tea.Msg {
-								err := m.client.PublishEventStream(m.path+m.popupInput.Value(), es)
-								if err != nil {
-									return addPathResponse{success: false, message: err.Error()}
-								}
-								return addPathResponse{success: true, message: "Event stream added"}
-							}
-						case "File":
-							file := nc.CreateIndividualFile(m.formInputs[0].Value())
-							cmd = func() tea.Msg {
-								err := m.client.PublishIndividualFile(m.path+m.popupInput.Value(), file)
-								if err != nil {
-									return addPathResponse{success: false, message: err.Error()}
-								}
-								return addPathResponse{success: true, message: "File added"}
-							}
-						case "Directory":
-							dir, err := nc.CreateDirectory(m.formInputs[0].Value())
-							if err != nil {
-								cmd = func() tea.Msg {
-									return addPathResponse{success: false, message: err.Error()}
-								}
-							} else {
-								cmd = func() tea.Msg {
-									err := m.client.PublishDirectory(m.path+m.popupInput.Value(), dir)
-									if err != nil {
-										return addPathResponse{success: false, message: err.Error()}
-									}
-									return addPathResponse{success: true, message: "Directory added"}
-								}
-							}
-						case "Database Table":
-							port, _ := strconv.ParseInt(m.formInputs[2].Value(), 10, 32)
-							table := nc.CreateDatabaseTable(
-								m.formInputs[0].Value(), // DB Type
-								m.formInputs[1].Value(), // Host
-								int32(port),             // Port
-								m.formInputs[3].Value(), // DB Name
-								m.formInputs[4].Value(), // Table Name
-							)
-							cmd = func() tea.Msg {
-								err := m.client.PublishDatabaseTable(m.path+m.popupInput.Value(), table)
-								if err != nil {
-									return addPathResponse{success: false, message: err.Error()}
-								}
-								return addPathResponse{success: true, message: "Database table added"}
-							}
-						}
+						cmd = addPathCmd(m.client, m.path, m.currentFormType, m.popupInput.Value(), m.formInputs)
 						cmds = append(cmds, cmd)
 					} else {
 						// Move to next input
