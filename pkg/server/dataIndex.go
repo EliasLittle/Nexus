@@ -274,7 +274,14 @@ func loadNodeValues(node *TrieNode) {
 			// Extract the actual integer value from the representation
 			if valueMap, ok := node.Value.(map[string]interface{}); ok {
 				log.Debug("Successfully found int value as map")
-				node.Value = &pb.IntValue{Value: int32(valueMap["value"].(int))}
+				// Handle the case where the value might be float64 from JSON
+				if floatVal, ok := valueMap["value"].(float64); ok {
+					node.Value = &pb.IntValue{Value: int32(floatVal)}
+				} else if intVal, ok := valueMap["value"].(int); ok {
+					node.Value = &pb.IntValue{Value: int32(intVal)}
+				} else {
+					log.Error("Failed to convert value to int", "value", valueMap["value"])
+				}
 			}
 		case "FloatValue":
 			log.Debug("Found float value")
