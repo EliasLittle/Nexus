@@ -127,7 +127,7 @@ type deletePathResponse struct {
 	message string
 }
 
-func initialModel(initialPath string) model {
+func initialModel(initialPath, host string, port int) model {
 	log := logger.GetLogger()
 
 	columns := []table.Column{
@@ -153,7 +153,7 @@ func initialModel(initialPath string) model {
 		Bold(true)
 	t.SetStyles(s)
 
-	conn, err := nc.CreateGRPCConnection(nc.DefaultConnection)
+	conn, err := nc.CreateGRPCConnection(fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		log.Error("Failed to create gRPC connection", "error", err)
 		os.Exit(1)
@@ -865,13 +865,17 @@ func (m model) View() string {
 func main() {
 	log := logger.GetLogger()
 
-	// Add a flag for the initial path
-	var initialPath string
+	// Add flags for the initial path, host, and port
+	var initialPath, host string
+	var port int
 	flag.StringVar(&initialPath, "path", "/", "Initial path to start from")
+	flag.StringVar(&host, "host", "localhost", "Host of the server")
+	flag.IntVar(&port, "port", 50051, "Port of the server")
 	flag.Parse()
 
-	log.Info("Starting Yukon")
-	p := tea.NewProgram(initialModel(initialPath), tea.WithKeyboardEnhancements())
+	log.Info("Starting Yukon", "host", host, "port", port)
+	// Use host and port as needed in your application logic
+	p := tea.NewProgram(initialModel(initialPath, host, port), tea.WithKeyboardEnhancements())
 
 	if _, err := p.Run(); err != nil {
 		log.Error("Error running program", "error", err)
