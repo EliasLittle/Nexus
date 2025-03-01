@@ -13,6 +13,18 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
 3. **Value Store/Publishing (Redis)**
    - Small values can be sent directly to the Nexus server, allowing consumers to retrieve data directly or act as a cache for event streaming.
 
+## Installation
+
+- Install Golang: 
+    - `sudo apt install golang-go`
+- Install protoc: 
+    - `sudo apt install -y protobuf-compiler`
+- Install go-protoc: 
+    - `go install google.golang.org/protobuf/cmd/protoc-gen-go@latest`
+    - `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest`
+Run `make all`
+
+
 ## Usage
 
 ### Running the Server
@@ -20,7 +32,11 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
 To run the Nexus server, use the following command:
 
 ```shell
-make run-server
+Usage: 'nexus-server <load_file_path> <save_file_path>' or 'nexus-server <save_file_path>'
+Options:
+  <load_file_path>   Path to the file to load.
+  <save_file_path>   Path to the file to save.
+  --help             Show this help message.
 ```
 
 ### Running the Client
