@@ -1,0 +1,13 @@
+[Unit]
+Description=Nexus Server
+After=network.target
+
+[Service]
+Type=simple
+#User=username  # Change to appropriate user, or omit for root
+ExecStart=/usr/local/bin/nexus-server --new-index "index.json"
+WorkingDirectory=/usr/local/etc/nexus/
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

@@ -28,6 +28,20 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
     - `go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest`
 Run `make all`
 
+Add and start as systemd service:
+```
+sudo cp ./nexus-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable nexus-server.service
+sudo systemctl start nexus-server.service
+```
+
+Monitor service:
+```
+sudo systemctl status nexus-server.service
+sudo journalctl -u nexus-server.service -f
+```
+
 
 ## Usage
 
