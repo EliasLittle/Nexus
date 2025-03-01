@@ -39,17 +39,8 @@ func InitLogger(logFilePath string) error {
 func GetLogger() *log.Logger {
 	if Logger == nil {
 		// If logger hasn't been initialized, create a default one that logs to a file in ~/.nexus/logs
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			Logger = log.NewWithOptions(os.Stderr, log.Options{
-				ReportCaller:    true,
-				ReportTimestamp: true,
-				Level:           log.DebugLevel,
-				Prefix:          "nexus",
-			})
-			return Logger
-		}
-		logDir := filepath.Join(homeDir, ".nexus", "logs")
+		nexusDir := "/usr/local/etc/nexus/"
+		logDir := filepath.Join(nexusDir, "logs")
 		defaultLogPath := filepath.Join(logDir, "nexus.log")
 		if err := InitLogger(defaultLogPath); err != nil {
 			// If we can't create the file logger, fall back to stderr
