@@ -12,6 +12,10 @@ Nexus is a Data Distribution System designed for event streaming, dataset access
 
 3. **Value Store/Publishing (Redis)**
    - Small values can be sent directly to the Nexus server, allowing consumers to retrieve data directly or act as a cache for event streaming.
+  
+4. **Go and Python Clients**
+   - Go client is available here
+   - Python client in [this repo](https://github.com/EliasLittle/NexusPython)
 
 ## Installation
 
