@@ -42,6 +42,10 @@ all: proto client server yukon
 install-server:
 	cp nexus-server /usr/local/bin/
 
+install-client:
+	cp nexus-client /usr/local/bin/
+	cp yukon /usr/local/bin/
+
 # Run the client application
 run-client: build-client
 	@echo "Running the client application..."
